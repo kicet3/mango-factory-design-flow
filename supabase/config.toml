@@ -1,0 +1,62 @@
+project_id = "zcxknllsrqipcrkffdla"
+
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://d982f9f4-4373-442d-b168-d0b5e763eaa6.lovableproject.com"]
+jwt_expiry = 3600
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+
+[functions.upload-to-s3]
+verify_jwt = true
+
+[functions.download-from-s3]
+verify_jwt = true
+
+[functions.download-s3-file]
+
+[functions.upload-s3-file]
+
+[functions.delete-s3-file]
+
+[functions.secure-download]
+verify_jwt = false
+
+[functions.request-format-recommendation]
+
+[functions.request-generation]
+
+[functions.request-multiple-generation]
+
+[functions.analyze-course-material]
+
+[functions.analyze-generation-format]
+
+[functions.verify-admin-access]
+
+[functions.whoami]
+
+[functions.admin-help-requests]
+
+[functions.admin-teacher-data]
+
+[functions.video-recommendations]
+verify_jwt = true
+
+[functions.enable-generation-response-sharing]
+
+[functions.manage-rgf-course-types]
+
+[functions.regenerate-generation]
+
+[functions.update-course-structure]

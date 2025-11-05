@@ -1,0 +1,352 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+/* Gilroy Font Family */
+@font-face {
+  font-family: 'Gilroy';
+  src: url('/fonts/Gilroy-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Gilroy';
+  src: url('/fonts/Gilroy-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Gilroy';
+  src: url('/fonts/Gilroy-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Gilroy';
+  src: url('/fonts/Gilroy-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Gilroy';
+  src: url('/fonts/Gilroy-Heavy.ttf') format('truetype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    /* MangoFactory Design System - Natural & Pastel Green Theme */
+    --background: 120 20% 98%;
+    --foreground: 140 15% 20%;
+
+    --card: 120 25% 97%;
+    --card-foreground: 140 15% 20%;
+
+    --popover: 120 25% 97%;
+    --popover-foreground: 140 15% 20%;
+
+    /* Main green palette */
+    --primary: 140 35% 55%;        /* #8FCB9B */
+    --primary-foreground: 120 20% 98%;
+    --primary-hover: 140 40% 50%;
+    --primary-light: 140 30% 85%;  /* #B6E2D3 */
+
+    --secondary: 120 40% 94%;      /* #EEF7F2 */
+    --secondary-foreground: 140 15% 30%;
+
+    --muted: 120 25% 92%;
+    --muted-foreground: 140 10% 50%;
+
+    --accent: 140 25% 80%;         /* #88A68A variant */
+    --accent-foreground: 140 20% 25%;
+
+    /* Supporting colors */
+    --success: 140 50% 45%;
+    --warning: 45 90% 65%;         /* Mango orange */
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 120 20% 98%;
+
+    --border: 140 20% 88%;
+    --input: 140 15% 95%;
+    --ring: 140 35% 55%;
+
+    /* MangoFactory specific tokens */
+    --radius: 1.5rem;              /* 24px for soft rounded corners */
+    --radius-lg: 2rem;             /* 32px for hero elements */
+    --radius-sm: 1rem;             /* 16px for small elements */
+    
+    /* AI-related styles */
+    --ai-gradient: linear-gradient(135deg, hsl(280 80% 70%), hsl(260 90% 80%), hsl(240 85% 85%));
+    --ai-glow: 0 0 30px hsl(280 80% 70% / 0.3);
+    --ai-shadow: 0 4px 25px hsl(280 80% 70% / 0.2);
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)));
+    --gradient-soft: linear-gradient(180deg, hsl(var(--background)), hsl(var(--secondary)));
+    --gradient-hero: linear-gradient(135deg, hsl(var(--primary-light)), hsl(var(--secondary)));
+    --gradient-mango: linear-gradient(135deg, hsl(0 70% 60%), hsl(50 90% 60%), hsl(120 50% 50%));
+    
+    /* Shadows */
+    --shadow-soft: 0 4px 20px -8px hsl(var(--primary) / 0.15);
+    --shadow-hover: 0 8px 30px -10px hsl(var(--primary) / 0.25);
+    --shadow-card: 0 2px 15px -5px hsl(var(--primary) / 0.1);
+    
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    --sidebar-background: 120 25% 97%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+@layer components {
+  /* MangoFactory Component Styles */
+  .mf-card {
+    @apply bg-card border border-border rounded-[var(--radius)] shadow-[var(--shadow-card)] 
+           transition-[var(--transition-smooth)] hover:shadow-[var(--shadow-hover)] hover:-translate-y-1;
+  }
+  
+  .mf-button-primary {
+    background: linear-gradient(to right, #7DD87F, #4CAF50);
+    @apply text-white border-0 rounded-full px-8 py-4 font-medium shadow-[var(--shadow-soft)]
+           transition-[var(--transition-bounce)] hover:shadow-[var(--shadow-hover)] 
+           hover:scale-[1.02] active:scale-[0.98];
+  }
+  
+  .mf-button-secondary {
+    background: linear-gradient(to right, #f8fffe, #e8f5f3);
+    @apply text-gray-700 border border-gray-200
+           rounded-full px-6 py-3 font-medium
+           transition-[var(--transition-smooth)] hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 hover:scale-[1.02];
+  }
+  
+  .mf-input {
+    @apply bg-input border border-border rounded-[var(--radius-sm)] px-4 py-3
+           transition-[var(--transition-smooth)] focus:ring-2 focus:ring-primary/20 
+           focus:border-primary focus:shadow-[var(--shadow-soft)];
+  }
+  
+  .mf-hero-gradient {
+    background: linear-gradient(135deg, #DBECE1 0%, #FAFCFA 100%);
+  }
+  
+  .mf-soft-shadow {
+    box-shadow: var(--shadow-soft);
+  }
+  
+  .mf-hover-lift {
+    @apply transition-[var(--transition-smooth)] hover:-translate-y-2 hover:shadow-[var(--shadow-hover)];
+  }
+
+  .mf-ai-button {
+    background: var(--ai-gradient);
+    @apply text-white border-0 rounded-[var(--radius)] px-6 py-3 font-medium
+           relative overflow-hidden transition-all duration-300
+           hover:shadow-[var(--ai-shadow)] hover:scale-[1.05] hover:-translate-y-1;
+  }
+
+  .mf-ai-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.8s ease-in-out;
+  }
+
+  .mf-ai-button:hover::before {
+    left: 100%;
+  }
+
+  .mf-ai-button .sparkle {
+    @apply animate-pulse;
+    animation-duration: 2s;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { 
+      box-shadow: var(--ai-shadow);
+    }
+    50% { 
+      box-shadow: var(--ai-glow);
+    }
+  }
+
+  .mf-ai-button:hover {
+    animation: pulse-glow 2s infinite;
+  }
+
+  /* Mango gradient styles for premium features */
+  .mf-mango-border {
+    border: 2px solid transparent;
+    background: linear-gradient(white, white) padding-box, var(--gradient-mango) border-box;
+    border-radius: var(--radius);
+  }
+
+  .mf-mango-button {
+    background: var(--gradient-mango);
+    @apply text-white border-0 rounded-full px-6 py-3 font-medium
+           relative overflow-hidden transition-all duration-300
+           hover:shadow-[0_8px_30px_-8px_hsl(0_70%_60%_/_0.4)] hover:scale-[1.02] hover:-translate-y-1;
+  }
+
+  .mf-mango-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.8s ease-in-out;
+  }
+
+  .mf-mango-button:hover::before {
+    left: 100%;
+  }
+
+  .mf-mango-badge {
+    background: linear-gradient(135deg, hsl(15 80% 60%), hsl(50 85% 55%));
+    @apply text-white border-0 font-medium shadow-sm;
+  }
+
+  /* Responsive layout for Generate page */
+  .mf-generate-container {
+    /* Remove fixed height and internal scroll */
+  }
+
+  .mf-compact-card {
+    @apply h-fit;
+  }
+
+  .mf-compact-header {
+    @apply pb-2 pt-3;
+  }
+
+  .mf-compact-title {
+    @apply text-base font-medium;
+  }
+
+  .mf-compact-description {
+    @apply text-sm leading-tight;
+  }
+
+  .mf-scrollable-content {
+    /* Remove fixed height and internal scroll */
+  }
+
+  .mf-input-small {
+    @apply h-7 text-sm;
+  }
+
+  .mf-compact-spacing {
+    @apply space-y-2;
+  }
+
+  .mf-tight-spacing {
+    @apply space-y-1;
+  }
+
+  /* Premium Upgrade Section */
+  .mf-premium-upgrade-container {
+    @apply p-4 rounded-[var(--radius-lg)]
+           relative overflow-hidden;
+    background: var(--gradient-mango);
+  }
+  
+  .mf-premium-upgrade-button {
+    @apply w-full bg-white/90 border-0 rounded-full 
+           px-6 py-3 text-sm font-medium
+           relative overflow-hidden transition-all duration-300
+           hover:bg-white hover:shadow-lg hover:scale-[1.02];
+    color: #00BF63;
+  }
+  
+  .mf-premium-upgrade-button:hover {
+    color: #00BF63;
+  }
+
+  .mf-button-white {
+    @apply bg-white text-gray-700 border border-gray-200
+           rounded-full px-6 py-3 font-medium shadow-md
+           transition-[var(--transition-smooth)] hover:bg-gray-50 hover:shadow-lg hover:scale-[1.02];
+  }
+}
