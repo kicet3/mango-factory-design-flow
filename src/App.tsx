@@ -25,6 +25,7 @@ import TeachingPlanEditor from "./pages/TeachingPlanEditor";
 import TeachingPlanViewer from "./pages/TeachingPlanViewer";
 import TeachingMaterialsExample from "./pages/TeachingMaterialsExample";
 import MaterialDetailPage from "./pages/MaterialDetailPage";
+import TeachingSession from "./pages/TeachingSession";
 
 const queryClient = new QueryClient();
 
@@ -139,6 +140,11 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/gallery/material/:id" element={<MaterialDetailPage />} />
+            <Route path="/teaching-session/:conversionId" element={
+              <ProtectedRoute>
+                <TeachingSession />
+              </ProtectedRoute>
+            } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

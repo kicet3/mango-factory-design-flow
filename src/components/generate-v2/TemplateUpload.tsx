@@ -14,6 +14,7 @@ interface TemplateUploadProps {
 
 export function TemplateUpload({ onSuccess }: TemplateUploadProps) {
   const [file, setFile] = useState<File | null>(null)
+  const [contentName, setContentName] = useState("")
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
 
@@ -46,6 +47,14 @@ export function TemplateUpload({ onSuccess }: TemplateUploadProps) {
       return
     }
 
+    if (!contentName.trim()) {
+      toast.error("콘텐츠 이름을 입력해주세요", {
+        duration: 2000,
+        position: 'top-right'
+      })
+      return
+    }
+
     setUploading(true)
     setProgress(0)
 
@@ -63,6 +72,7 @@ export function TemplateUpload({ onSuccess }: TemplateUploadProps) {
       formData.append('file', file)
       formData.append('file_type', 'pptx')
       formData.append('component_name', 'GeneratedComponent')
+      formData.append('content_name', contentName)
       formData.append('framework', 'react')
       formData.append('styling', 'tailwind')
       formData.append('typescript', 'true')
@@ -118,6 +128,19 @@ export function TemplateUpload({ onSuccess }: TemplateUploadProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* 콘텐츠 이름 입력 */}
+        <div className="space-y-2">
+          <Label htmlFor="content-name">콘텐츠 이름</Label>
+          <Input
+            id="content-name"
+            type="text"
+            placeholder="교안 콘텐츠 이름을 입력하세요"
+            value={contentName}
+            onChange={(e) => setContentName(e.target.value)}
+            disabled={uploading}
+          />
+        </div>
+
         {/* 파일 선택 */}
         <div className="space-y-2">
           <Label htmlFor="file-upload">파일 선택</Label>
@@ -152,7 +175,7 @@ export function TemplateUpload({ onSuccess }: TemplateUploadProps) {
         {/* 업로드 버튼 */}
         <Button
           onClick={handleUpload}
-          disabled={!file || uploading}
+          disabled={!file || !contentName.trim() || uploading}
           className="w-full gap-2"
           size="lg"
         >
