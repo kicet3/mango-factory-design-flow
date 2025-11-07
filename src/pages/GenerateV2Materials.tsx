@@ -2,37 +2,56 @@
 import { useState, useEffect } from "react"
 import { Layout } from "@/components/layout/Layout"
 import { TeachingMaterialCard } from "@/components/generate-v2/TeachingMaterialCard"
+import { GenerateMaterialDialog } from "@/components/generate-v2/GenerateMaterialDialog"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, Plus } from "lucide-react"
 import { useNavigate } from "react-router-dom"
-import { fetchConversions, type ConversionSummary } from "@/services/conversions"
+import { fetchMaterials, deleteMaterial, type MaterialSummary } from "@/services/conversions"
 import { toast } from "sonner"
+import { supabase } from "@/integrations/supabase/client"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const ITEMS_PER_PAGE = 12
 
+// 난이도 한글 변환
+const difficultyMap: Record<string, string> = {
+  'easy': '쉬움',
+  'medium': '보통',
+  'hard': '어려움'
+}
+
 // API 데이터를 TeachingMaterialCard props로 변환
-const convertToMaterialCard = (conversion: ConversionSummary) => ({
-  id: conversion.id.toString(),
-  materialType: 'teacher_ppt' as const, // API에서 file_type으로 매핑 필요
-  createdAt: conversion.created_at,
-  publisher: conversion.original_filename, // 파일명을 출판사 위치에 표시
-  grade: "정보 없음", // API에 없는 정보
+const convertToMaterialCard = (material: MaterialSummary) => ({
+  id: material.material_id.toString(),
+  materialType: 'teacher_ppt' as const,
+  createdAt: material.created_at,
+  publisher: material.gpt_model, // GPT 모델을 출판사 위치에 표시
+  grade: material.grade_level || "정보 없음",
   semester: "정보 없음", // API에 없는 정보
-  subject: "정보 없음", // API에 없는 정보
-  unit: "정보 없음", // API에 없는 정보
+  subject: material.subject_name,
+  unit: material.topic,
   lesson: "정보 없음", // API에 없는 정보
-  title: conversion.content_name, // 콘텐츠 이름을 큰 제목으로 표시
+  title: material.material_name,
   previewImage: undefined, // API에 없는 정보
   teachingStyle: [], // API에 없는 정보
   activityType: [], // API에 없는 정보
   competencies: [], // API에 없는 정보
   otherTags: [
-    conversion.framework,
-    conversion.styling,
-    conversion.file_type
+    difficultyMap[material.difficulty] || material.difficulty,
+    `${material.num_items_generated}개 아이템`,
+    `${material.class_duration_minutes}분`
   ].filter(Boolean),
   usageCount: 0, // API에 없는 정보
-  templateUsageCount: conversion.total_slides,
+  templateUsageCount: material.num_items_generated,
   likesCount: 0, // API에 없는 정보
   viewCount: 0, // API에 없는 정보
   isPublic: false,
@@ -44,25 +63,33 @@ export default function GenerateV2Materials() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [materialToDelete, setMaterialToDelete] = useState<{ id: string; title: string } | null>(null)
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
 
   // API 데이터 가져오기
   useEffect(() => {
-    const loadConversions = async () => {
+    const loadMaterials = async () => {
       setLoading(true)
       try {
-        const response = await fetchConversions({
-          page: currentPage,
-          page_size: ITEMS_PER_PAGE,
-          success_only: false,
-        })
+        // Get auth token
+        const { data: { session } } = await supabase.auth.getSession()
+        const accessToken = session?.access_token
 
-        const convertedMaterials = response.conversions.map(convertToMaterialCard)
+        const response = await fetchMaterials({
+          limit: ITEMS_PER_PAGE,
+          offset: (currentPage - 1) * ITEMS_PER_PAGE,
+          order_by: 'created_at',
+          order_dir: 'DESC'
+        }, accessToken)
+
+        const convertedMaterials = response.materials.map(convertToMaterialCard)
         setMaterials(convertedMaterials)
         setTotalItems(response.total)
       } catch (error) {
-        console.error('Failed to fetch conversions:', error)
+        console.error('Failed to fetch materials:', error)
         toast.error('자료 목록을 불러오는데 실패했습니다', {
           duration: 2000,
           position: 'top-right'
@@ -72,7 +99,7 @@ export default function GenerateV2Materials() {
       }
     }
 
-    loadConversions()
+    loadMaterials()
   }, [currentPage])
 
   const handlePreviousPage = () => {
@@ -107,16 +134,100 @@ export default function GenerateV2Materials() {
     alert("공유 링크가 복사되었습니다!")
   }
 
+  const handleGenerateSuccess = () => {
+    // Reload materials to show updated data
+    const loadMaterials = async () => {
+      setLoading(true)
+      try {
+        // Get auth token
+        const { data: { session } } = await supabase.auth.getSession()
+        const accessToken = session?.access_token
+
+        const response = await fetchMaterials({
+          limit: ITEMS_PER_PAGE,
+          offset: (currentPage - 1) * ITEMS_PER_PAGE,
+          order_by: 'created_at',
+          order_dir: 'DESC'
+        }, accessToken)
+
+        const convertedMaterials = response.materials.map(convertToMaterialCard)
+        setMaterials(convertedMaterials)
+        setTotalItems(response.total)
+      } catch (error) {
+        console.error('Failed to fetch materials:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadMaterials()
+  }
+
+  const handleDeleteClick = (materialId: string, title: string) => {
+    setMaterialToDelete({ id: materialId, title })
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!materialToDelete) return
+
+    try {
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
+
+      // Call delete API
+      await deleteMaterial(parseInt(materialToDelete.id), accessToken)
+
+      toast.success('자료가 삭제되었습니다', {
+        duration: 2000,
+        position: 'top-right'
+      })
+
+      // Reload materials list
+      setLoading(true)
+      const response = await fetchMaterials({
+        limit: ITEMS_PER_PAGE,
+        offset: (currentPage - 1) * ITEMS_PER_PAGE,
+        order_by: 'created_at',
+        order_dir: 'DESC'
+      }, accessToken)
+      const convertedMaterials = response.materials.map(convertToMaterialCard)
+      setMaterials(convertedMaterials)
+      setTotalItems(response.total)
+      setLoading(false)
+
+      // Close dialog
+      setDeleteDialogOpen(false)
+      setMaterialToDelete(null)
+    } catch (error) {
+      console.error('Failed to delete material:', error)
+      toast.error('자료 삭제에 실패했습니다', {
+        duration: 2000,
+        position: 'top-right'
+      })
+    }
+  }
+
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
         <div className="container mx-auto max-w-7xl space-y-8">
           {/* 헤더 */}
-          <div className="text-center space-y-2">
+          <div className="text-center space-y-4">
             <h1 className="text-4xl font-bold tracking-tight">수업 자료 관리</h1>
             <p className="text-muted-foreground">
               생성된 수업 자료를 확인하고 관리할 수 있습니다
             </p>
+            <div className="flex justify-center">
+              <Button
+                onClick={() => setDialogOpen(true)}
+                size="lg"
+                className="gap-2"
+              >
+                <Plus className="w-5 h-5" />
+                새 자료 생성하기
+              </Button>
+            </div>
           </div>
 
           {/* 로딩 상태 */}
@@ -147,6 +258,7 @@ export default function GenerateV2Materials() {
                       onStartLesson={() => handleStartLesson(material.id, material.title)}
                       onShare={() => handleShare(material.id, material.title)}
                       onTogglePublic={() => handleTogglePublic(material.id)}
+                      onDelete={() => handleDeleteClick(material.id, material.title)}
                     />
                   </div>
                 ))}
@@ -218,6 +330,38 @@ export default function GenerateV2Materials() {
           )}
         </div>
       </div>
+
+      {/* 자료 생성 다이얼로그 */}
+      <GenerateMaterialDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSuccess={handleGenerateSuccess}
+      />
+
+      {/* 자료 삭제 확인 다이얼로그 */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>자료 삭제</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{materialToDelete?.title}" 자료를 정말 삭제하시겠습니까?
+              <br />
+              이 작업은 되돌릴 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setMaterialToDelete(null)}>
+              취소
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   )
 }

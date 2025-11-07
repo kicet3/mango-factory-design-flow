@@ -1,11 +1,24 @@
 // GenerateV2Upload - PPTX 파일 업로드 페이지
 import { Layout } from "@/components/layout/Layout"
 import { TemplateUpload } from "@/components/generate-v2/TemplateUpload"
+import { useNavigate } from "react-router-dom"
+import { toast } from "sonner"
 
 export default function GenerateV2Upload() {
+  const navigate = useNavigate()
+
   const handleUploadSuccess = (data: any) => {
     console.log("Upload success:", data)
-    // 업로드 성공 처리 (필요시 추가)
+
+    toast.success("업로드가 완료되었습니다!", {
+      duration: 2000,
+      position: 'top-right'
+    })
+
+    // 수업 자료 관리 페이지로 이동
+    setTimeout(() => {
+      navigate('/generate-v2/materials')
+    }, 1500)
   }
 
   return (

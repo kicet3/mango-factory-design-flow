@@ -150,3 +150,235 @@ export async function fetchConversionDetail(
 
   return response.json()
 }
+
+// Materials Generation Types
+export interface SubjectData {
+  subject_name: string
+  topic: string
+  difficulty?: string
+  learning_goals?: string[]
+  examples?: Array<{
+    question: string
+    answer: string
+  }>
+}
+
+export interface GenerateMaterialsRequest {
+  user_id: number
+  conversion_id: number
+  component_id?: number
+  subject_data: SubjectData
+  class_duration_minutes?: number
+  num_items?: number
+  preserve_structure?: boolean
+}
+
+export interface GenerateMaterialsResponse {
+  success: boolean
+  message: string
+  conversion_id: number
+  component_id: number
+  component_name: string
+  original_prop_data_type: any
+  original_sample_data: any
+  generated_data: any
+  num_items_generated: number
+  generation_time: number
+  gpt_model: string
+  created_at: string
+}
+
+/**
+ * 교과목 데이터를 기반으로 수업 자료 생성
+ * POST /materials/generate
+ */
+export async function generateMaterials(
+  request: GenerateMaterialsRequest,
+  accessToken?: string
+): Promise<GenerateMaterialsResponse> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
+  }
+
+  const response = await fetch(`${API_BASE_URL}/materials/generate`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(request),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Failed to generate materials: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+export interface MaterialSummary {
+  material_id: number
+  material_name: string
+  subject_name: string
+  topic: string
+  difficulty: string
+  grade_level: string | null
+  num_items_generated: number
+  class_duration_minutes: number
+  gpt_model: string
+  created_at: string
+}
+
+export interface MaterialsListResponse {
+  total: number
+  materials: MaterialSummary[]
+}
+
+export interface MaterialsListParams {
+  limit?: number
+  offset?: number
+  order_by?: 'created_at' | 'updated_at' | 'material_name' | 'subject_name' | 'topic' | 'difficulty' | 'grade_level' | 'num_items_generated' | 'class_duration_minutes'
+  order_dir?: 'ASC' | 'DESC'
+}
+
+/**
+ * 전체 교재 목록 조회 (페이지네이션)
+ * GET /materials/
+ */
+export async function fetchMaterials(
+  params: MaterialsListParams = {},
+  accessToken?: string
+): Promise<MaterialsListResponse> {
+  const {
+    limit = 20,
+    offset = 0,
+    order_by = 'created_at',
+    order_dir = 'DESC'
+  } = params
+
+  const queryParams = new URLSearchParams({
+    limit: limit.toString(),
+    offset: offset.toString(),
+    order_by,
+    order_dir
+  })
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
+  }
+
+  const response = await fetch(`${API_BASE_URL}/materials/?${queryParams.toString()}`, {
+    method: 'GET',
+    headers,
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Failed to fetch materials: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+export interface MaterialComponent {
+  component_id: number
+  component_name: string
+  code: string
+  imports: string[]
+  styles: string
+  layout_styles: any
+  image_mapping: any
+  prop_data_type: any
+}
+
+export interface MaterialDetail {
+  material_id: number
+  user_id: number
+  conversion_id: number
+  component_id: number
+  material_name: string
+  subject_name: string
+  topic: string
+  difficulty: string
+  grade_level: string | null
+  subject_data: any
+  generated_data: any
+  num_items_generated: number
+  layout_component_name: string
+  prop_data_type: any
+  original_sample_data: any
+  class_duration_minutes: number
+  generation_time: number
+  gpt_model: string
+  component: MaterialComponent
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * 교재 데이터 상세 조회
+ * GET /materials/{material_id}
+ */
+export async function fetchMaterialDetail(
+  materialId: number,
+  accessToken?: string
+): Promise<MaterialDetail> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
+  }
+
+  const response = await fetch(`${API_BASE_URL}/materials/${materialId}`, {
+    method: 'GET',
+    headers,
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Failed to fetch material detail: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+export interface DeleteMaterialResponse {
+  success: boolean
+  message: string
+  material_id: number
+}
+
+/**
+ * 교재 데이터 삭제
+ * DELETE /materials/{material_id}
+ */
+export async function deleteMaterial(
+  materialId: number,
+  accessToken?: string
+): Promise<DeleteMaterialResponse> {
+  const headers: Record<string, string> = {}
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
+  }
+
+  const response = await fetch(`${API_BASE_URL}/materials/${materialId}`, {
+    method: 'DELETE',
+    headers,
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Failed to delete material: ${response.statusText}`)
+  }
+
+  return response.json()
+}

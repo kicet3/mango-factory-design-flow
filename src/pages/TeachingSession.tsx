@@ -17,10 +17,56 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { fetchConversionDetail, type ConversionDetail } from "@/services/conversions"
+import { fetchMaterialDetail, type MaterialDetail } from "@/services/conversions"
 import { toast } from "sonner"
+import { supabase } from "@/integrations/supabase/client"
 
 type ViewMode = 'slide' | 'basic'
+
+// MaterialDetail을 기존 ConversionDetail 형식으로 변환하는 어댑터
+interface ConversionDetail {
+  id: number
+  content_name: string
+  conversion_type?: string
+  components: Array<{
+    id: number
+    component_name: string
+    code?: string
+    component_code?: string
+  }>
+  slides: Array<{
+    id: number
+    slide_number: number
+    slide_title?: string
+    slide_content?: string
+    layout_component?: string
+    data?: Record<string, any>
+  }>
+}
+
+function adaptMaterialToConversion(material: MaterialDetail): ConversionDetail {
+  // MaterialDetail의 generated_data를 슬라이드 형식으로 변환
+  const slides = material.generated_data ? [{
+    id: 1,
+    slide_number: 1,
+    slide_title: material.material_name,
+    slide_content: `${material.subject_name} - ${material.topic}`,
+    layout_component: material.layout_component_name,
+    data: material.generated_data
+  }] : []
+
+  return {
+    id: material.material_id,
+    content_name: material.material_name,
+    conversion_type: 'basic',
+    components: material.component ? [{
+      id: material.component.component_id,
+      component_name: material.component.component_name,
+      code: material.component.code
+    }] : [],
+    slides
+  }
+}
 
 export default function TeachingSession() {
   const { conversionId } = useParams<{ conversionId: string }>()
@@ -31,24 +77,27 @@ export default function TeachingSession() {
   const [viewMode, setViewMode] = useState<ViewMode>('slide')
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
-  // API에서 변환 데이터 가져오기
+  // API에서 교재 데이터 가져오기
   useEffect(() => {
-    const loadConversionDetail = async () => {
+    const loadMaterialDetail = async () => {
       if (!conversionId) return
 
       setLoading(true)
       try {
-        const data = await fetchConversionDetail(conversionId)
-        setConversion(data)
+        // Get auth token
+        const { data: { session } } = await supabase.auth.getSession()
+        const accessToken = session?.access_token
 
-        // conversion_type에 따라 기본 뷰 모드 설정
-        if (data.conversion_type === 'basic') {
-          setViewMode('basic')
-        } else {
-          setViewMode('slide')
-        }
+        const material = await fetchMaterialDetail(parseInt(conversionId), accessToken)
+
+        // MaterialDetail을 ConversionDetail 형식으로 변환
+        const adaptedData = adaptMaterialToConversion(material)
+        setConversion(adaptedData)
+
+        // 기본적으로 basic 모드 사용
+        setViewMode('basic')
       } catch (error) {
-        console.error('Failed to fetch conversion detail:', error)
+        console.error('Failed to fetch material detail:', error)
         toast.error('수업 자료를 불러오는데 실패했습니다', {
           duration: 2000,
           position: 'top-right'
@@ -58,7 +107,7 @@ export default function TeachingSession() {
       }
     }
 
-    loadConversionDetail()
+    loadMaterialDetail()
   }, [conversionId])
 
   // 현재 슬라이드의 컴포넌트 코드를 iframe에 렌더링
