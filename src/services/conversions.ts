@@ -301,7 +301,8 @@ export interface MaterialDetail {
   material_id: number
   user_id: number
   conversion_id: number
-  component_id: number
+  component_id: number | null
+  conversion_type: string | null
   material_name: string
   subject_name: string
   topic: string
@@ -310,13 +311,46 @@ export interface MaterialDetail {
   subject_data: any
   generated_data: any
   num_items_generated: number
-  layout_component_name: string
+  layout_component_name: string | null
   prop_data_type: any
   original_sample_data: any
-  class_duration_minutes: number
-  generation_time: number
+  class_duration_minutes: number | null
+  generation_time: number | null
   gpt_model: string
-  component: MaterialComponent
+  generation_metadata: any
+  component: MaterialComponent | null
+  generated_slides: Array<{
+    data: any
+    slide_number: number
+    layout_component: string
+    layout_description: string
+  }>
+  conversion?: {
+    id: number
+    content_name: string
+    conversion_type: string
+    components: Array<{
+      id: number
+      conversion_id: number
+      component_name: string
+      code: string
+      imports: any
+      props_interface: any
+      styles: any
+      layout_styles: any
+      image_mapping: any
+      prop_data_type: any
+      used_by_slides: number[]
+      order_index: number
+      created_at: string
+    }>
+  }
+  slides?: Array<{
+    data: any
+    slide_number: number
+    layout_component: string
+    layout_description: string
+  }>
   created_at: string
   updated_at: string
 }

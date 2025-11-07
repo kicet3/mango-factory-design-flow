@@ -45,20 +45,40 @@ interface ConversionDetail {
 }
 
 function adaptMaterialToConversion(material: MaterialDetail): ConversionDetail {
-  // MaterialDetail의 generated_data를 슬라이드 형식으로 변환
-  const slides = material.generated_data ? [{
-    id: 1,
-    slide_number: 1,
-    slide_title: material.material_name,
-    slide_content: `${material.subject_name} - ${material.topic}`,
-    layout_component: material.layout_component_name,
-    data: material.generated_data
-  }] : []
+  // API 응답에 conversion과 slides가 이미 있는 경우 사용
+  if (material.conversion && material.slides) {
+    return {
+      id: material.material_id,
+      content_name: material.material_name,
+      conversion_type: material.conversion.conversion_type,
+      components: material.conversion.components || [],
+      slides: material.slides.map(slide => ({
+        id: slide.slide_number,
+        slide_number: slide.slide_number,
+        slide_title: material.material_name,
+        slide_content: slide.layout_description,
+        layout_component: slide.layout_component,
+        data: slide.data
+      }))
+    }
+  }
+
+  // generated_data를 슬라이드로 변환 (fallback)
+  const slides = material.generated_data && Array.isArray(material.generated_data)
+    ? material.generated_data.map((item, index) => ({
+        id: index + 1,
+        slide_number: index + 1,
+        slide_title: material.material_name,
+        slide_content: `${material.subject_name} - ${material.topic}`,
+        layout_component: item.layout_component || material.layout_component_name,
+        data: item.data
+      }))
+    : []
 
   return {
     id: material.material_id,
     content_name: material.material_name,
-    conversion_type: 'basic',
+    conversion_type: material.conversion_type || 'basic',
     components: material.component ? [{
       id: material.component.component_id,
       component_name: material.component.component_name,
