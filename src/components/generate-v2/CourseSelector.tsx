@@ -75,9 +75,9 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
 
   // AI Recommendation Panel
   const [showAIPanel, setShowAIPanel] = useState(false)
-  const [aiFormationType, setAiFormationType] = useState<string[]>([]) // 구성 형태
+  const [aiFormationType, setAiFormationType] = useState<string[]>(['개별 활동']) // 구성 형태 - 기본값: 개별 활동
   const [aiLearningActivities, setAiLearningActivities] = useState<string[]>([]) // 학습 활동
-  const [aiRecommendedDifficulty, setAiRecommendedDifficulty] = useState<number | null>(null) // 난이도
+  const [aiRecommendedDifficulty, setAiRecommendedDifficulty] = useState<number | null>(2) // 난이도 - 기본값: 2 (보통)
   const [aiNumStudents, setAiNumStudents] = useState<number>(20) // 참여 학생수
   const [aiClassDuration, setAiClassDuration] = useState<number>(45) // 소요시간
   const [aiTeachingStyle, setAiTeachingStyle] = useState<string[]>([]) // 수업 스타일
@@ -337,9 +337,6 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
       <Card className="h-fit">
         <CardHeader>
           <CardTitle className="text-2xl">교과 정보 입력</CardTitle>
-          <CardDescription className="text-base">
-            단계별로 선택해주세요
-          </CardDescription>
         </CardHeader>
       <CardContent className="space-y-8">
         {/* Step 1 & 2: 학년 + 학기 (한 줄) */}
@@ -354,18 +351,16 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
             {teacherInfo && (
               <>
                 <Button
-                  size="lg"
                   variant="outline"
                   disabled
-                  className="h-14 text-lg bg-muted/50"
+                  className="h-10 text-base bg-muted/50"
                 >
                   {teacherInfo.class_grade}학년
                 </Button>
                 <Button
-                  size="lg"
                   variant="outline"
                   disabled
-                  className="h-14 text-lg bg-muted/50"
+                  className="h-10 text-base bg-muted/50"
                 >
                   {teacherInfo.class_semester}학기
                 </Button>
@@ -390,13 +385,12 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
                     <Button
                       key={type.course_type_id}
                       variant={selectedCourseType === type.course_type_id ? "default" : "outline"}
-                      size="lg"
                       onClick={() => {
                         setSelectedCourseType(type.course_type_id)
                         setSelectedCourseTypeName(type.course_type_name)
                         if (currentStep === 2) setCurrentStep(3)
                       }}
-                      className="h-14 text-base px-8 whitespace-nowrap"
+                      className="h-10 text-base px-8 whitespace-nowrap"
                     >
                       {type.course_type_name}
                     </Button>
@@ -448,13 +442,13 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
         {/* Step 4: 차시 선택 */}
         {currentStep >= 4 && selectedUnitIndex !== null && courseStructure[selectedUnitIndex]?.section_weeks && (
           <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-semibold">
-                {currentStep > 4 ? <Check className="w-5 h-5" /> : "4"}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-semibold">
+                  {currentStep > 4 ? <Check className="w-5 h-5" /> : "4"}
+                </div>
+                <Label className="text-lg font-semibold">차시를 선택해주세요 (복수 선택 가능)</Label>
               </div>
-              <Label className="text-lg font-semibold">차시를 선택해주세요 (복수 선택 가능)</Label>
-            </div>
-            <div className="ml-11 space-y-3">
               <Button
                 variant="ghost"
                 size="sm"
@@ -467,6 +461,8 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
               >
                 전체 선택
               </Button>
+            </div>
+            <div className="ml-11 space-y-3">
               <div className="space-y-2 max-h-[300px] overflow-y-auto">
                 {courseStructure[selectedUnitIndex].section_weeks.map((week: any, weekIndex: number) => (
                   <div
@@ -583,7 +579,7 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
               <div className="grid grid-cols-3 gap-3">
                 {[
                   { label: '개별 활동', icon: '👤' },
-                  { label: '학 활동', icon: '👥' },
+                  { label: '짝 활동', icon: '👥' },
                   { label: '모둠 활동', icon: '👨‍👩‍👧‍👦' }
                 ].map((type) => (
                   <Button
@@ -655,14 +651,14 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
                   value={[aiClassDuration]}
                   onValueChange={(value) => setAiClassDuration(value[0])}
                   min={0}
-                  max={40}
-                  step={1}
+                  max={60}
+                  step={5}
                   className="w-full"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>0분</span>
                   <span className="font-semibold text-primary">{aiClassDuration}분</span>
-                  <span>40분</span>
+                  <span>60분</span>
                 </div>
               </div>
             </div>
