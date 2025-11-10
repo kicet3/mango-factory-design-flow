@@ -42,7 +42,7 @@ export function MangoSidebar() {
 
   return (
     <Sidebar className="border-r border-border/40">
-      <SidebarHeader className="p-6 border-b border-border/40">
+      <SidebarHeader className="h-16 px-6 border-b border-border/40 flex items-center">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
             <img src={mangoLogo} alt="MangoFactory Logo" className="w-full h-full object-contain" />
