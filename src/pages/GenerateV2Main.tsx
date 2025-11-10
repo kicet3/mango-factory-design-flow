@@ -17,6 +17,7 @@ import { toast } from "sonner"
 type Step = 'course' | 'plan' | 'generating' | 'result'
 
 export interface CourseData {
+  course_id: number
   course_type_id: number
   course_type_name: string
   teaching_style_ids: number[]
@@ -29,6 +30,8 @@ export interface CourseData {
   expected_duration_min: number
   additional_message: string
   description: string | null
+  grade_level_id: number
+  grade_level_name: string
 }
 
 export interface TeachingPlanData {

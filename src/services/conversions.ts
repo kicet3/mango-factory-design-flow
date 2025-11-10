@@ -175,7 +175,8 @@ export interface SubjectData {
 }
 
 export interface GenerateMaterialsRequest {
-  user_id: number
+  user_id: string
+  course_id: number
   conversion_id: number
   component_id?: number
   subject_data: SubjectData

@@ -53,6 +53,7 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
   const [courseTypes, setCourseTypes] = useState<CourseType[]>([])
   const [selectedCourseType, setSelectedCourseType] = useState<number | null>(null)
   const [selectedCourseTypeName, setSelectedCourseTypeName] = useState<string>("")
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
 
   const [teachingStyles, setTeachingStyles] = useState<TeachingStyle[]>([])
   const [selectedTeachingStyles, setSelectedTeachingStyles] = useState<number[]>([])
@@ -220,8 +221,12 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
 
       if (!coursesData) {
         setCourseStructure([])
+        setSelectedCourseId(null)
         return
       }
+
+      // Save course_id to state
+      setSelectedCourseId(coursesData.course_id)
 
       const { data: rawCourseMaterialsData, error: rawCourseMaterialsError } = await supabase
         .from('raw_course_materials')
@@ -297,7 +302,13 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
       return
     }
 
+    if (!selectedCourseId) {
+      toast.error("교과 정보를 불러오는 중입니다. 잠시만 기다려주세요.")
+      return
+    }
+
     const courseData: CourseData = {
+      course_id: selectedCourseId,
       course_type_id: selectedCourseType,
       course_type_name: selectedCourseTypeName,
       teaching_style_ids: selectedTeachingStyles,
@@ -310,7 +321,6 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
       expected_duration_min: selectedDuration,
       additional_message: "",
       description: description.trim() || null,
-      course_id: 0,
       grade_level_id: teacherInfo?.class_grade || 0,
       grade_level_name: `${teacherInfo?.class_grade}학년` || ""
     }

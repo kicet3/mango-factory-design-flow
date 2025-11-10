@@ -325,8 +325,13 @@ export default function TeachingSession() {
     }
 
     // 슬라이드 데이터를 props로 전달
-    // slide.data를 그대로 전달 (shape_4, shape_5 등의 실제 데이터)
-    const slideData = currentSlide.data || {}
+    // slide.data가 배열인 경우 첫 번째 요소를 전달, 아니면 그대로 전달
+    let slideData = currentSlide.data || {}
+
+    // data가 배열이면 첫 번째 요소 사용
+    if (Array.isArray(slideData) && slideData.length > 0) {
+      slideData = slideData[0]
+    }
 
     console.log('📊 Slide Data being passed as props:', slideData)
 

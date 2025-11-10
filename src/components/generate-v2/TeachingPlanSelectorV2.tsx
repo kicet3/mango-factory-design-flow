@@ -172,7 +172,8 @@ export function TeachingPlanSelectorV2({ onSelect, courseData }: TeachingPlanSel
       }
 
       const response = await generateMaterials({
-        user_id: parseInt(user.id),
+        user_id: user.id,
+        course_id: courseData.course_id,
         conversion_id: selectedPlanId,
         subject_data: subjectData,
         class_duration_minutes: classDuration,
