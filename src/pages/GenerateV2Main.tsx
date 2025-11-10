@@ -143,27 +143,13 @@ export default function GenerateV2Main() {
 
           {/* Step Content */}
           {step === 'course' && (
-            <CourseSelector onSubmit={handleCourseSubmit} />
+            <div className="animate-in slide-in-from-right-10 fade-in duration-500">
+              <CourseSelector onSubmit={handleCourseSubmit} />
+            </div>
           )}
 
           {step === 'plan' && courseData && (
-            <>
-              {/* 선택된 과목 정보 표시 */}
-              <Card className="mb-6 border-green-200 bg-green-50/50">
-                <CardHeader>
-                  <CardTitle className="text-lg">선택된 교과서 정보</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="default">{courseData.course_type_name}</Badge>
-                    {courseData.difficulty_id && <Badge variant="outline">난이도 설정됨</Badge>}
-                    {courseData.expected_duration_min && (
-                      <Badge variant="outline">{courseData.expected_duration_min}분</Badge>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
+            <div className="animate-in slide-in-from-right-10 fade-in duration-500">
               <TeachingPlanSelectorV2
                 onSelect={handlePlanSelect}
                 courseData={courseData}
@@ -175,14 +161,16 @@ export default function GenerateV2Main() {
                   이전
                 </Button>
               </div>
-            </>
+            </div>
           )}
 
           {step === 'generating' && generationResponseId && (
-            <GenerationProgressV2
-              responseId={generationResponseId}
-              onComplete={handleGenerationComplete}
-            />
+            <div className="animate-in slide-in-from-right-10 fade-in duration-500">
+              <GenerationProgressV2
+                responseId={generationResponseId}
+                onComplete={handleGenerationComplete}
+              />
+            </div>
           )}
         </div>
       </div>

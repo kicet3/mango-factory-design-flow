@@ -122,7 +122,87 @@ export function TeachingPlanSelectorV2({ onSelect, courseData }: TeachingPlanSel
 
   const handlePlanSelect = (plan: TeachingPlan) => {
     setSelectedPlanId(plan.teaching_plan_id)
-    setShowSubjectForm(true)
+  }
+
+  const handleGenerate = async () => {
+    if (!selectedPlanId) {
+      toast.error("교안을 선택해주세요")
+      return
+    }
+
+    if (!user?.id) {
+      toast.error("로그인이 필요합니다")
+      return
+    }
+
+    const validLearningGoals = learningGoals.filter(goal => goal.trim())
+    const validExamples = examples.filter(ex => ex.question.trim() && ex.answer.trim())
+
+    const finalSubjectName = courseData.course_type_name
+    const finalTopic = topic.trim() || courseData.description || "일반 수업"
+
+    const subjectData: SubjectData = {
+      subject_name: finalSubjectName,
+      topic: finalTopic,
+      difficulty: difficulty,
+      learning_goals: validLearningGoals.length > 0 ? validLearningGoals : undefined,
+      examples: validExamples.length > 0 ? validExamples : undefined,
+      course_info: {
+        course_id: courseData.course_id,
+        course_type_id: courseData.course_type_id,
+        course_type_name: courseData.course_type_name,
+        grade_level_id: courseData.grade_level_id,
+        grade_level_name: courseData.grade_level_name,
+        difficulty_id: courseData.difficulty_id,
+        expected_duration_min: courseData.expected_duration_min,
+        description: courseData.description,
+        additional_message: courseData.additional_message
+      }
+    }
+
+    setGenerating(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
+
+      if (!accessToken) {
+        toast.error("인증 토큰을 가져올 수 없습니다. 다시 로그인해주세요.")
+        setGenerating(false)
+        return
+      }
+
+      const response = await generateMaterials({
+        user_id: parseInt(user.id),
+        conversion_id: selectedPlanId,
+        subject_data: subjectData,
+        class_duration_minutes: classDuration,
+        num_items: numItems,
+        preserve_structure: true
+      }, accessToken)
+
+      toast.success(
+        `자료 생성 완료!\n${response.num_items_generated}개 아이템이 생성되었습니다 (${response.generation_time.toFixed(2)}초)`,
+        {
+          duration: 3000,
+          position: 'top-right'
+        }
+      )
+
+      setTimeout(() => {
+        navigate('/generate-v2/materials')
+      }, 1500)
+    } catch (error) {
+      console.error('Material generation failed:', error)
+      toast.error(
+        error instanceof Error ? error.message : '자료 생성에 실패했습니다',
+        {
+          duration: 3000,
+          position: 'top-right'
+        }
+      )
+    } finally {
+      setGenerating(false)
+    }
   }
 
   const handleAddLearningGoal = () => {
@@ -151,78 +231,6 @@ export function TeachingPlanSelectorV2({ onSelect, courseData }: TeachingPlanSel
     const updated = [...examples]
     updated[index][field] = value
     setExamples(updated)
-  }
-
-  const handleGenerate = async () => {
-    if (!selectedPlanId) {
-      toast.error("교안을 선택해주세요")
-      return
-    }
-
-    if (!user?.id) {
-      toast.error("로그인이 필요합니다")
-      return
-    }
-
-    const validLearningGoals = learningGoals.filter(goal => goal.trim())
-    const validExamples = examples.filter(ex => ex.question.trim() && ex.answer.trim())
-
-    // courseData에서 과목명 가져오기
-    const finalSubjectName = courseData.course_type_name
-    const finalTopic = topic.trim() || courseData.description || "일반 수업"
-
-    const subjectData: SubjectData = {
-      subject_name: finalSubjectName,
-      topic: finalTopic,
-      difficulty: difficulty,
-      learning_goals: validLearningGoals.length > 0 ? validLearningGoals : undefined,
-      examples: validExamples.length > 0 ? validExamples : undefined
-    }
-
-    setGenerating(true)
-    try {
-      // Get access token from Supabase session
-      const { data: { session } } = await supabase.auth.getSession()
-      const accessToken = session?.access_token
-
-      if (!accessToken) {
-        toast.error("인증 토큰을 가져올 수 없습니다. 다시 로그인해주세요.")
-        return
-      }
-
-      const response = await generateMaterials({
-        user_id: parseInt(user.id),
-        conversion_id: selectedPlanId,
-        subject_data: subjectData,
-        class_duration_minutes: classDuration,
-        num_items: numItems,
-        preserve_structure: true
-      }, accessToken)
-
-      toast.success(
-        `자료 생성 완료!\n${response.num_items_generated}개 아이템이 생성되었습니다 (${response.generation_time.toFixed(2)}초)`,
-        {
-          duration: 3000,
-          position: 'top-right'
-        }
-      )
-
-      // 수업 자료 관리 페이지로 이동
-      setTimeout(() => {
-        navigate('/generate-v2/materials')
-      }, 1500)
-    } catch (error) {
-      console.error('Material generation failed:', error)
-      toast.error(
-        error instanceof Error ? error.message : '자료 생성에 실패했습니다',
-        {
-          duration: 3000,
-          position: 'top-right'
-        }
-      )
-    } finally {
-      setGenerating(false)
-    }
   }
 
   if (loading) {
@@ -273,7 +281,7 @@ export function TeachingPlanSelectorV2({ onSelect, courseData }: TeachingPlanSel
               </p>
             </div>
 
-            <div className="p-4 border border-border rounded-lg bg-muted/20">
+            <div className="p-4 border border-border rounded-lg bg-muted/20 max-h-[600px] overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredPlans.map((plan) => {
                   const isSelected = selectedPlanId === plan.teaching_plan_id
@@ -346,201 +354,19 @@ export function TeachingPlanSelectorV2({ onSelect, courseData }: TeachingPlanSel
           </div>
         )}
 
-        {/* 교과목 데이터 입력 폼 */}
-        {showSubjectForm && selectedPlanId && (
-          <Card className="mt-6 border-primary/20 bg-primary/5">
-            <CardHeader>
-              <CardTitle className="text-lg">수업 자료 생성 정보</CardTitle>
-              <CardDescription>선택한 교과 정보를 확인하고 추가 정보를 입력해주세요</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* 선택된 교과 정보 (읽기 전용) */}
-              <div className="p-4 bg-background border rounded-lg space-y-3">
-                <h4 className="font-semibold text-sm">선택된 교과 정보</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">과목명: </span>
-                    <span className="font-medium">{courseData.course_type_name}</span>
-                  </div>
-                  {courseData.description && (
-                    <div>
-                      <span className="text-muted-foreground">주제: </span>
-                      <span className="font-medium">{courseData.description}</span>
-                    </div>
-                  )}
-                  <div>
-                    <span className="text-muted-foreground">난이도: </span>
-                    <span className="font-medium">
-                      {difficulty === 'easy' ? '쉬움' : difficulty === 'hard' ? '어려움' : '보통'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">수업 시간: </span>
-                    <span className="font-medium">{classDuration}분</span>
-                  </div>
-                </div>
-                {courseData.additional_message && (
-                  <div className="text-sm pt-2 border-t">
-                    <span className="text-muted-foreground">추가 메시지: </span>
-                    <span>{courseData.additional_message}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* 추가 주제 입력 (선택) */}
-              <div className="space-y-2">
-                <Label htmlFor="topic">세부 주제 (선택)</Label>
-                <Input
-                  id="topic"
-                  placeholder="예: 2자리 수 곱셈, 나눗셈의 기초"
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  교과 정보에 추가할 세부 주제를 입력하세요
-                </p>
-              </div>
-
-              {/* 학습 목표 (선택) */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>학습 목표 (선택)</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddLearningGoal}
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    추가
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  {learningGoals.map((goal, index) => (
-                    <div key={index} className="flex gap-2">
-                      <Input
-                        placeholder={`학습 목표 ${index + 1}`}
-                        value={goal}
-                        onChange={(e) => handleUpdateLearningGoal(index, e.target.value)}
-                      />
-                      {learningGoals.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => handleRemoveLearningGoal(index)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 예제 (선택) */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>예제 (선택)</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddExample}
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    추가
-                  </Button>
-                </div>
-                <div className="space-y-3">
-                  {examples.map((example, index) => (
-                    <div key={index} className="space-y-2 p-3 border rounded-lg bg-background">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm">예제 {index + 1}</Label>
-                        {examples.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoveExample(index)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                      <Input
-                        placeholder="질문"
-                        value={example.question}
-                        onChange={(e) => handleUpdateExample(index, 'question', e.target.value)}
-                      />
-                      <Input
-                        placeholder="답변"
-                        value={example.answer}
-                        onChange={(e) => handleUpdateExample(index, 'answer', e.target.value)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 생성 설정 */}
-              <div className="space-y-4 pt-4 border-t">
-                <h4 className="font-semibold text-sm">생성 설정</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="duration">수업 시간 (분)</Label>
-                    <Input
-                      id="duration"
-                      type="number"
-                      min={1}
-                      max={180}
-                      value={classDuration}
-                      onChange={(e) => setClassDuration(parseInt(e.target.value) || 45)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      약 {Math.round(classDuration * 0.8)}~{Math.round(classDuration * 1.25)}개 아이템 생성
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="items">아이템 개수 (선택)</Label>
-                    <Input
-                      id="items"
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={numItems}
-                      onChange={(e) => setNumItems(parseInt(e.target.value) || 5)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      수업 시간이 우선 적용됨
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* 생성 버튼 */}
-              <div className="flex gap-2 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowSubjectForm(false)}
-                  disabled={generating}
-                  className="flex-1"
-                >
-                  취소
-                </Button>
-                <Button
-                  onClick={handleGenerate}
-                  disabled={generating}
-                  className="flex-1"
-                >
-                  {generating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  {generating ? '생성 중...' : '생성하기'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* 생성 버튼 */}
+        <div className="mt-6 flex justify-end">
+          <Button
+            onClick={handleGenerate}
+            disabled={!selectedPlanId || generating}
+            size="lg"
+            className="gap-2"
+          >
+            {generating && <Loader2 className="w-4 h-4 animate-spin" />}
+            {generating ? '생성 중...' : '자료 생성하기'}
+            {!generating && <Sparkles className="w-4 h-4" />}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )

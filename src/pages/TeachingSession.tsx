@@ -625,74 +625,95 @@ export default function TeachingSession() {
             </div>
           </>
         ) : (
-          /* ========== 베이직 모드 (페이지 전체 렌더링) ========== */
-          <div className="h-full flex bg-gray-100">
-            {/* 좌측 슬라이드 목록 */}
-            <div className="w-64 bg-white border-r border-gray-200 overflow-y-auto">
-              <div className="p-4">
-                <h2 className="text-sm font-semibold text-gray-700 mb-3">슬라이드 목록</h2>
-                <div className="space-y-2">
-                  {conversion.slides.map((slide, index) => (
-                    <button
-                      key={slide.id}
-                      onClick={() => setCurrentSlideIndex(index)}
-                      className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                        index === currentSlideIndex
-                          ? 'bg-primary text-white'
-                          : 'bg-gray-50 hover:bg-gray-100 text-gray-700'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium truncate">
-                          {slide.slide_title || `슬라이드 ${index + 1}`}
-                        </span>
-                        <span className="text-xs opacity-75">{index + 1}</span>
+          /* ========== 베이직 모드 (슬라이드와 동일한 UI + 사이드바) ========== */
+          <>
+            {/* iframe - 중앙 배치 */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div
+                className="bg-white shadow-2xl"
+                style={{
+                  width: '1280px',
+                  height: '720px',
+                  maxWidth: '100vw',
+                  maxHeight: 'calc(100vh - 60px)'
+                }}
+              >
+                <iframe
+                  ref={iframeRef}
+                  className="w-full h-full border-0"
+                  title={`slide-${currentSlideIndex + 1}`}
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
+                />
+              </div>
+            </div>
+
+            {/* 좌측 슬라이드 선택 패널 */}
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 z-20">
+              <div className="group">
+                {/* 토글 버튼 */}
+                <button className="bg-white/90 hover:bg-white p-2 rounded-r-lg shadow-lg transition-all group-hover:opacity-100 opacity-50">
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+
+                {/* 슬라이드 목록 패널 (호버시 표시) */}
+                <div className="absolute left-0 top-0 -translate-y-1/2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-300">
+                  <div className="bg-white/95 backdrop-blur-md rounded-r-lg shadow-2xl w-80 max-h-[600px] overflow-y-auto">
+                    <div className="p-4">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center justify-between">
+                        <span>슬라이드 목록</span>
+                        <span className="text-xs text-gray-500">{conversion.slides.length}개</span>
+                      </h3>
+                      <div className="space-y-2">
+                        {conversion.slides.map((slide, index) => (
+                          <button
+                            key={slide.id}
+                            onClick={() => setCurrentSlideIndex(index)}
+                            className={`w-full text-left px-3 py-2 rounded-lg transition-all ${
+                              index === currentSlideIndex
+                                ? 'bg-primary text-white shadow-md scale-105'
+                                : 'bg-gray-50 hover:bg-gray-100 text-gray-700 hover:scale-102'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium truncate">
+                                {slide.slide_title || `슬라이드 ${index + 1}`}
+                              </span>
+                              <span className={`text-xs ${index === currentSlideIndex ? 'opacity-100' : 'opacity-75'}`}>
+                                {index + 1}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
                       </div>
-                    </button>
-                  ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* 우측 컨텐츠 영역 - 인터랙션 가능 */}
-            <div className="flex-1 overflow-y-auto bg-white p-8">
-              <div className="max-w-4xl mx-auto">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-800">
-                    {conversion.slides[currentSlideIndex]?.slide_title || `슬라이드 ${currentSlideIndex + 1}`}
-                  </h2>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handlePrintCurrentSlide}
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    PDF 출력
-                  </Button>
-                </div>
-
-                {/* iframe - 인터랙션 가능 */}
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden" style={{ minHeight: '600px' }}>
-                  <iframe
-                    ref={iframeRef}
-                    className="w-full border-0"
-                    style={{ height: '720px' }}
-                    title={`slide-${currentSlideIndex + 1}`}
-                    sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
-                  />
-                </div>
-              </div>
+            {/* 하단 페이지 인디케이터 */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900/80 backdrop-blur z-10">
+              {conversion.slides.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlideIndex(index)}
+                  className={`w-2 h-2 rounded-full transition-all ${
+                    index === currentSlideIndex
+                      ? 'bg-white w-8'
+                      : 'bg-white/50 hover:bg-white/75'
+                  }`}
+                  title={`슬라이드 ${index + 1}`}
+                />
+              ))}
             </div>
-          </div>
+          </>
         )}
       </div>
 
       {/* 단축키 안내 */}
-      {viewMode === 'slide' && (
-        <div className="absolute bottom-4 right-4 text-xs text-gray-500 bg-gray-900/80 backdrop-blur px-3 py-2 rounded">
-          ← → : 슬라이드 이동 | ESC : 나가기
-        </div>
-      )}
+      <div className="absolute bottom-4 right-4 text-xs text-gray-500 bg-gray-900/80 backdrop-blur px-3 py-2 rounded z-10">
+        ← → : 슬라이드 이동 | ESC : 나가기
+      </div>
     </div>
   )
 }

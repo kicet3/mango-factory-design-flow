@@ -161,6 +161,17 @@ export interface SubjectData {
     question: string
     answer: string
   }>
+  course_info?: {
+    course_id: number
+    course_type_id: number
+    course_type_name: string
+    grade_level_id: number
+    grade_level_name: string
+    difficulty_id: number
+    expected_duration_min: number
+    description?: string
+    additional_message?: string
+  }
 }
 
 export interface GenerateMaterialsRequest {

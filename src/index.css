@@ -349,4 +349,14 @@ All colors MUST be HSL.
            rounded-full px-6 py-3 font-medium shadow-md
            transition-[var(--transition-smooth)] hover:bg-gray-50 hover:shadow-lg hover:scale-[1.02];
   }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+  }
 }
