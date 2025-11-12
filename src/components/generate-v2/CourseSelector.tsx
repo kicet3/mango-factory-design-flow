@@ -550,6 +550,7 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
                 <div className="flex items-center gap-2">
                   <span className="text-xl">⚙️</span>
                   <Label className="text-lg font-semibold">구성 형태</Label>
+                  <span className="text-sm text-muted-foreground ml-2">원하지 않는 형태는 클릭해 해제합니다</span>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   {[
@@ -641,6 +642,7 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
                 <div className="flex items-center gap-2">
                   <span className="text-xl">🪄</span>
                   <Label className="text-lg font-semibold">수업 스타일</Label>
+                  <span className="text-sm text-muted-foreground ml-2">중복 선택 가능</span>
                 </div>
                 <div className="space-y-3">
                   {[
