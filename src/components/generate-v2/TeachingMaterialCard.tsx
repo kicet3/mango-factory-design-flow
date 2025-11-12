@@ -49,7 +49,8 @@ interface TeachingMaterialCardProps {
   previewImage?: string
 
   // 태그
-  teachingStyle?: string[] // 선호 수업 스타일
+  recommendedSubjects?: string[] // 추천과목 (국어, 수학, 사회, 과학, 통합교과, 영어)
+  teachingStyle?: string[] // 수업 스타일 (교과서 중심 수업, 의사소통 및 협력, 프로젝트 기반, 만들기 및 제작, 게임 기반)
   activityType?: string[] // 활동 형태
   competencies?: string[] // 역량
   otherTags?: string[] // 그 외
@@ -84,6 +85,7 @@ export function TeachingMaterialCard({
   lesson,
   title,
   previewImage,
+  recommendedSubjects = [],
   teachingStyle = [],
   activityType = [],
   competencies = [],
@@ -172,10 +174,25 @@ export function TeachingMaterialCard({
 
         {/* 태그 섹션 */}
         <div className="space-y-3">
+          {recommendedSubjects.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground min-w-[100px]">
+                추천과목
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {recommendedSubjects.map((tag, index) => (
+                  <Badge key={index} variant="outline" className="rounded-md">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
           {teachingStyle.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground min-w-[100px]">
-                선호 스터디 협동
+                수업 스타일
               </span>
               <div className="flex flex-wrap gap-2">
                 {teachingStyle.map((tag, index) => (
@@ -190,7 +207,7 @@ export function TeachingMaterialCard({
           {activityType.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground min-w-[100px]">
-                개별활동
+                활동 형태
               </span>
               <div className="flex flex-wrap gap-2">
                 {activityType.map((tag, index) => (

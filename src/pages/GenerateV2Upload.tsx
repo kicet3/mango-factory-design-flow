@@ -5,11 +5,18 @@ import { TemplateUpload } from "@/components/generate-v2/TemplateUpload"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileText, BookOpen, FolderOpen, ChevronDown, ChevronUp, Users } from "lucide-react"
+import { FileText, BookOpen, FolderOpen, ChevronDown, ChevronUp, Users, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 type CardType = 'lesson-card' | 'lesson-intro' | 'lesson-materials' | null
 type MaterialFileType = '교사용 프레젠테이션' | '학생용 활동지' | '학생용 에듀테크' | '교사용 정답지' | '예시 작품' | '만들기 도안'
@@ -28,14 +35,21 @@ export default function GenerateV2Upload() {
 
   // 수업 카드 상태
   const [lessonTitle, setLessonTitle] = useState<string>('')
+  const [recommendedSubjects, setRecommendedSubjects] = useState<string[]>([])
   const [activityType, setActivityType] = useState<string[]>([])
   const [lessonStyle, setLessonStyle] = useState<string[]>([])
   const [competency, setCompetency] = useState<string[]>([])
   const [otherTags, setOtherTags] = useState<string>('')
 
-  // 수업 자료 상태
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
-  const [currentFileType, setCurrentFileType] = useState<MaterialFileType>('교사용 프레젠테이션')
+  // 수업 자료 상태 - 첫 번째 파일을 바로 표시
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([
+    {
+      id: Date.now().toString(),
+      type: '교사용 프레젠테이션',
+      file: null,
+      name: ''
+    }
+  ])
   const [isGenerating, setIsGenerating] = useState(false)
 
   const handleUploadSuccess = (data: any) => {
@@ -70,7 +84,7 @@ export default function GenerateV2Upload() {
   const handleAddFile = () => {
     const newFile: UploadedFile = {
       id: Date.now().toString(),
-      type: currentFileType,
+      type: '교사용 프레젠테이션',
       file: null,
       name: ''
     }
@@ -84,6 +98,12 @@ export default function GenerateV2Upload() {
   const handleFileSelect = (id: string, file: File) => {
     setUploadedFiles(uploadedFiles.map(f =>
       f.id === id ? { ...f, file, name: file.name } : f
+    ))
+  }
+
+  const handleFileTypeChange = (id: string, type: MaterialFileType) => {
+    setUploadedFiles(uploadedFiles.map(f =>
+      f.id === id ? { ...f, type } : f
     ))
   }
 
@@ -105,6 +125,7 @@ export default function GenerateV2Upload() {
 
       // 수업 카드 데이터
       if (lessonTitle) formData.append('lesson_title', lessonTitle)
+      if (recommendedSubjects.length > 0) formData.append('recommended_subjects', JSON.stringify(recommendedSubjects))
       if (activityType.length > 0) formData.append('activity_type', JSON.stringify(activityType))
       if (lessonStyle.length > 0) formData.append('lesson_style', JSON.stringify(lessonStyle))
       if (competency.length > 0) formData.append('competency', JSON.stringify(competency))
@@ -228,6 +249,30 @@ export default function GenerateV2Upload() {
                         />
                       </div>
 
+                      {/* 추천과목 */}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">📚</span>
+                          <Label className="text-base font-semibold">추천과목</Label>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          {['국어', '수학', '사회', '과학', '통합교과', '영어'].map((subject) => (
+                            <Button
+                              key={subject}
+                              variant={recommendedSubjects.includes(subject) ? 'default' : 'outline'}
+                              size="lg"
+                              className="h-12 text-base"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleSelection(recommendedSubjects, subject, setRecommendedSubjects)
+                              }}
+                            >
+                              {subject}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
                       {/* 활동 형태 */}
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
@@ -258,8 +303,8 @@ export default function GenerateV2Upload() {
                           <span className="text-lg">✅</span>
                           <Label className="text-base font-semibold">수업 스타일</Label>
                         </div>
-                        <div className="flex gap-3">
-                          {['개인기반 학습', '모둠활동', '체험활동'].map((style) => (
+                        <div className="grid grid-cols-3 gap-3">
+                          {['교과서 중심 수업', '의사소통 및 협력', '프로젝트 기반', '만들기 및 제작', '게임 기반'].map((style) => (
                             <Button
                               key={style}
                               variant={lessonStyle.includes(style) ? 'default' : 'outline'}
@@ -397,12 +442,6 @@ export default function GenerateV2Upload() {
                           className="min-h-[400px] border-0 resize-none focus-visible:ring-0 text-base p-6"
                         />
                       </div>
-
-                      <div className="flex justify-end pt-4">
-                        <Button size="lg" className="h-12 text-base font-semibold px-8">
-                          저장하기
-                        </Button>
-                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -441,140 +480,131 @@ export default function GenerateV2Upload() {
                   <div className="border-t pt-6">
                     <div className="space-y-6">
                       {/* 업로드된 파일 목록 */}
-                      {uploadedFiles.map((uploadedFile) => (
-                        <div key={uploadedFile.id} className="space-y-3 p-4 border rounded-lg bg-muted/30">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 bg-green-100 rounded flex items-center justify-center">
-                                <FileText className="w-4 h-4 text-green-600" />
-                              </div>
-                              <div>
+                      {uploadedFiles.map((uploadedFile, index) => (
+                        <div key={uploadedFile.id} className="space-y-4 p-6 border rounded-lg bg-muted/30">
+                          <div className="flex items-start justify-between gap-4">
+                            {/* 왼쪽: 수업 종류 선택 */}
+                            <div className="flex-shrink-0 w-64">
+                              <Label className="text-base font-semibold mb-3 block">수업 종류</Label>
+                              <Select
+                                value={uploadedFile.type}
+                                onValueChange={(value) => handleFileTypeChange(uploadedFile.id, value as MaterialFileType)}
+                              >
+                                <SelectTrigger className="h-12 text-base">
+                                  <SelectValue placeholder="선택하세요" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {materialFileTypes.map((type) => (
+                                    <SelectItem key={type} value={type} className="text-base">
+                                      {type}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* 오른쪽: 파일 업로드 */}
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-3">
                                 <Label className="text-base font-semibold">파일 업로드</Label>
-                                <p className="text-sm text-muted-foreground">
-                                  {uploadedFile.type}
-                                </p>
+                                {uploadedFiles.length > 1 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleRemoveFile(uploadedFile.id)
+                                    }}
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    삭제
+                                  </Button>
+                                )}
+                              </div>
+
+                              <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors bg-white">
+                                <input
+                                  type="file"
+                                  id={`file-input-${uploadedFile.id}`}
+                                  className="hidden"
+                                  accept=".html,.htm,.ppt,.pptx,.doc,.docx,.hwp"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0]
+                                    if (file) {
+                                      handleFileSelect(uploadedFile.id, file)
+                                    }
+                                  }}
+                                />
+                                {uploadedFile.file ? (
+                                  <div className="flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <FileText className="w-6 h-6 text-green-600" />
+                                      </div>
+                                      <div className="text-left">
+                                        <p className="text-base font-semibold text-foreground">
+                                          {uploadedFile.name}
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">
+                                          파일이 선택되었습니다
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <Button
+                                      variant="outline"
+                                      size="default"
+                                      className="flex-shrink-0"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        document.getElementById(`file-input-${uploadedFile.id}`)?.click()
+                                      }}
+                                    >
+                                      파일 변경
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col items-center gap-3">
+                                    <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                                      <Upload className="w-6 h-6 text-primary" />
+                                    </div>
+                                    <div>
+                                      <p className="text-base font-semibold text-primary mb-1">
+                                        파일을 선택하거나 드래그하세요
+                                      </p>
+                                      <p className="text-sm text-muted-foreground">
+                                        HTML, PPT, Doc, Hwp (최대 30MB)
+                                      </p>
+                                    </div>
+                                    <Button
+                                      variant="outline"
+                                      size="default"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        document.getElementById(`file-input-${uploadedFile.id}`)?.click()
+                                      }}
+                                    >
+                                      파일 선택
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleRemoveFile(uploadedFile.id)
-                              }}
-                            >
-                              ✕
-                            </Button>
-                          </div>
-
-                          <div className="border-2 border-dashed rounded-lg p-12 text-center hover:border-primary/50 transition-colors">
-                            <input
-                              type="file"
-                              id={`file-input-${uploadedFile.id}`}
-                              className="hidden"
-                              accept=".html,.htm,.ppt,.pptx,.doc,.docx,.hwp"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0]
-                                if (file) {
-                                  handleFileSelect(uploadedFile.id, file)
-                                }
-                              }}
-                            />
-                            {uploadedFile.file ? (
-                              <div className="flex flex-col items-center gap-4">
-                                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                                  <FileText className="w-8 h-8 text-green-600" />
-                                </div>
-                                <div>
-                                  <p className="text-base font-semibold text-foreground mb-1">
-                                    {uploadedFile.name}
-                                  </p>
-                                  <p className="text-sm text-muted-foreground">
-                                    파일이 선택되었습니다
-                                  </p>
-                                </div>
-                                <Button
-                                  variant="outline"
-                                  size="lg"
-                                  className="h-12 text-base font-semibold"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    document.getElementById(`file-input-${uploadedFile.id}`)?.click()
-                                  }}
-                                >
-                                  파일 변경
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center gap-4">
-                                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-                                  <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                                  </svg>
-                                </div>
-                                <div>
-                                  <p className="text-base font-semibold text-primary mb-1">
-                                    📤 파일 업로드하고 편집하기
-                                  </p>
-                                  <p className="text-sm text-muted-foreground">
-                                    기존 PPT나 PDF를 가져와서 수정합니다
-                                  </p>
-                                </div>
-                                <Button
-                                  variant="outline"
-                                  size="lg"
-                                  className="h-12 text-base font-semibold"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    document.getElementById(`file-input-${uploadedFile.id}`)?.click()
-                                  }}
-                                >
-                                  파일 선택
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex items-center justify-end gap-2 text-sm">
-                            <span className="text-muted-foreground">지원 형식: HTML, PPT, Doc, Hwp</span>
-                            <span className="text-muted-foreground">•</span>
-                            <span className="text-muted-foreground">최대 크기: 30MB</span>
                           </div>
                         </div>
                       ))}
 
                       {/* 파일 추가 버튼 */}
-                      <div className="space-y-3">
-                        <Label className="text-base font-semibold">자료 유형 선택</Label>
-                        <div className="grid grid-cols-3 gap-3">
-                          {materialFileTypes.map((type) => (
-                            <Button
-                              key={type}
-                              variant={currentFileType === type ? 'default' : 'outline'}
-                              size="lg"
-                              className="h-12 text-sm font-semibold"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setCurrentFileType(type)
-                              }}
-                            >
-                              {type}
-                            </Button>
-                          ))}
-                        </div>
-
-                        <Button
-                          variant="outline"
-                          size="lg"
-                          className="w-full h-14 text-primary text-lg font-semibold border-2 border-dashed hover:bg-primary/5"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleAddFile()
-                          }}
-                        >
-                          + 파일 추가
-                        </Button>
-                      </div>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="w-full h-14 text-primary text-lg font-semibold border-2 border-dashed hover:bg-primary/5"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleAddFile()
+                        }}
+                      >
+                        + 파일 추가하기
+                      </Button>
 
                       <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                         <div className="flex items-start gap-2">

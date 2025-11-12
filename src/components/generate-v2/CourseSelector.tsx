@@ -81,7 +81,7 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
   const [aiLearningActivities, setAiLearningActivities] = useState<string[]>([]) // 학습 활동
   const [aiRecommendedDifficulty, setAiRecommendedDifficulty] = useState<number | null>(2) // 난이도 - 기본값: 2 (보통)
   const [aiNumStudents, setAiNumStudents] = useState<number>(20) // 참여 학생수
-  const [aiClassDuration, setAiClassDuration] = useState<number>(45) // 소요시간
+  const [aiClassDuration, setAiClassDuration] = useState<number>(20) // 소요시간 - 기본값: 20분
   const [aiTeachingStyle, setAiTeachingStyle] = useState<string[]>([]) // 수업 스타일
 
   // Load initial data
@@ -547,7 +547,10 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
               {/* Same content as AI panel but without AI branding */}
               {/* 구성 형태 */}
               <div className="space-y-3">
-                <Label className="text-lg font-semibold">구성 형태</Label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">⚙️</span>
+                  <Label className="text-lg font-semibold">구성 형태</Label>
+                </div>
                 <div className="grid grid-cols-3 gap-3">
                   {[
                     { label: '개별 활동', icon: '👤' },
@@ -635,7 +638,10 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
 
               {/* 수업 스타일 */}
               <div className="space-y-3">
-                <Label className="text-lg font-semibold">수업 스타일</Label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🪄</span>
+                  <Label className="text-lg font-semibold">수업 스타일</Label>
+                </div>
                 <div className="space-y-3">
                   {[
                     '교과서 중심 수업',
