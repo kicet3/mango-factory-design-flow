@@ -359,4 +359,35 @@ All colors MUST be HSL.
   .scrollbar-hide::-webkit-scrollbar {
     display: none;  /* Chrome, Safari and Opera */
   }
+
+  /* Smooth slide transition animations */
+  @keyframes slide-in-smooth {
+    from {
+      opacity: 0;
+      transform: translateX(100px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slide-out-smooth {
+    from {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(-100px);
+    }
+  }
+
+  .slide-in-smooth {
+    animation: slide-in-smooth 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .slide-out-smooth {
+    animation: slide-out-smooth 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
 }

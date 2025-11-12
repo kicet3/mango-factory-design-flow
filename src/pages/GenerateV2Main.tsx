@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client"
 import { toast } from "sonner"
 
 type Step = 'course' | 'plan' | 'generating' | 'result'
+type SlideDirection = 'left' | 'right' | 'none'
 
 export interface CourseData {
   course_id: number
@@ -44,6 +45,8 @@ export default function GenerateV2Main() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>('course')
+  const [prevStep, setPrevStep] = useState<Step | null>(null)
+  const [isTransitioning, setIsTransitioning] = useState(false)
   const [courseData, setCourseData] = useState<CourseData | null>(null)
   const [planData, setPlanData] = useState<TeachingPlanData | null>(null)
   const [generationResponseId, setGenerationResponseId] = useState<number | null>(null)
@@ -60,7 +63,15 @@ export default function GenerateV2Main() {
 
   const handleCourseSubmit = (data: CourseData) => {
     setCourseData(data)
-    setStep('plan')
+    setIsTransitioning(true)
+    setPrevStep('course')
+    setTimeout(() => {
+      setStep('plan')
+      setTimeout(() => {
+        setIsTransitioning(false)
+        setPrevStep(null)
+      }, 50)
+    }, 500)
   }
 
   const handlePlanSelect = (data: TeachingPlanData) => {
@@ -115,31 +126,39 @@ export default function GenerateV2Main() {
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-primary-light/10 via-background to-secondary/20">
         <div className="container mx-auto max-w-5xl px-6 py-8">
+          <div className="relative overflow-hidden min-h-[600px]">
+            {/* Previous Step - Sliding Out */}
+            {isTransitioning && prevStep === 'course' && (
+              <div className="absolute inset-0 slide-out-smooth">
+                <CourseSelector onSubmit={handleCourseSubmit} />
+              </div>
+            )}
 
-          {/* Step Content */}
-          {step === 'course' && (
-            <div className="animate-in slide-in-from-right-10 fade-in duration-700">
-              <CourseSelector onSubmit={handleCourseSubmit} />
-            </div>
-          )}
+            {/* Current Step - Sliding In */}
+            {step === 'course' && !isTransitioning && (
+              <div className="slide-in-smooth">
+                <CourseSelector onSubmit={handleCourseSubmit} />
+              </div>
+            )}
 
-          {step === 'plan' && courseData && (
-            <div className="animate-in slide-in-from-right-10 fade-in duration-700">
-              <TeachingPlanSelectorV2
-                onSelect={handlePlanSelect}
-                courseData={courseData}
-              />
-            </div>
-          )}
+            {step === 'plan' && courseData && (
+              <div className={isTransitioning ? "slide-in-smooth" : ""}>
+                <TeachingPlanSelectorV2
+                  onSelect={handlePlanSelect}
+                  courseData={courseData}
+                />
+              </div>
+            )}
 
-          {step === 'generating' && generationResponseId && (
-            <div className="animate-in slide-in-from-right-10 fade-in duration-700">
-              <GenerationProgressV2
-                responseId={generationResponseId}
-                onComplete={handleGenerationComplete}
-              />
-            </div>
-          )}
+            {step === 'generating' && generationResponseId && (
+              <div className="slide-in-smooth">
+                <GenerationProgressV2
+                  responseId={generationResponseId}
+                  onComplete={handleGenerationComplete}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </Layout>
