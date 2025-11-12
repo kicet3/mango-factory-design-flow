@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowRight, Check, ChevronRight, Sparkles, X } from "lucide-react"
+import { ArrowRight, ChevronRight, Sparkles, X } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/hooks/use-auth"
 import { toast } from "sonner"
@@ -76,7 +76,8 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
 
   // AI Recommendation Panel
   const [showAIPanel, setShowAIPanel] = useState(false)
-  const [aiFormationType, setAiFormationType] = useState<string[]>(['개별 활동']) // 구성 형태 - 기본값: 개별 활동
+  const [showManualPanel, setShowManualPanel] = useState(false)
+  const [aiFormationType, setAiFormationType] = useState<string[]>(['개별 활동', '짝 활동', '모둠 활동']) // 구성 형태 - 기본값: 전체 선택
   const [aiLearningActivities, setAiLearningActivities] = useState<string[]>([]) // 학습 활동
   const [aiRecommendedDifficulty, setAiRecommendedDifficulty] = useState<number | null>(2) // 난이도 - 기본값: 2 (보통)
   const [aiNumStudents, setAiNumStudents] = useState<number>(20) // 참여 학생수
@@ -287,12 +288,14 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
     }
     setSelectedDuration(aiClassDuration)
 
-    // Convert AI teaching styles to IDs (assuming mapping exists)
-    // This is a placeholder - you may need to map string names to IDs from teachingStyles
-
     toast.success("AI 추천 설정이 적용되었습니다")
 
     // Submit the form and go to next step
+    handleSubmit()
+  }
+
+  const handleAIRecommendClick = () => {
+    // AI 추천받기를 누르면 바로 다음 단계로
     handleSubmit()
   }
 
@@ -342,35 +345,29 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-6">
+    <div className={`grid gap-6 ${showManualPanel ? 'grid-cols-2' : 'grid-cols-1 max-w-3xl mx-auto'}`}>
       {/* Left: Course Selection Card */}
       <Card className="h-fit">
         <CardHeader>
-          <CardTitle className="text-2xl">교과 정보 입력</CardTitle>
+          <CardTitle className="text-3xl font-bold">교과 정보 입력</CardTitle>
         </CardHeader>
       <CardContent className="space-y-8">
         {/* Step 1 & 2: 학년 + 학기 (한 줄) */}
         <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-semibold">
-              {currentStep > 2 ? <Check className="w-5 h-5" /> : "1"}
-            </div>
-            <Label className="text-lg font-semibold">학년과 학기를 확인해주세요</Label>
-          </div>
-          <div className="ml-11 grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             {teacherInfo && (
               <>
                 <Button
                   variant="outline"
                   disabled
-                  className="h-10 text-base bg-muted/50"
+                  className="h-12 text-lg bg-muted/50 font-semibold"
                 >
                   {teacherInfo.class_grade}학년
                 </Button>
                 <Button
                   variant="outline"
                   disabled
-                  className="h-10 text-base bg-muted/50"
+                  className="h-12 text-lg bg-muted/50 font-semibold"
                 >
                   {teacherInfo.class_semester}학기
                 </Button>
@@ -382,31 +379,21 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
         {/* Step 2: 과목 */}
         {currentStep >= 2 && (
           <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-semibold">
-                {currentStep > 2 ? <Check className="w-5 h-5" /> : "2"}
-              </div>
-              <Label className="text-lg font-semibold">과목을 선택해주세요</Label>
-            </div>
-            <div className="ml-11 relative">
-              <div className="overflow-x-auto pb-2 scrollbar-hide">
-                <div className="flex gap-3 min-w-max">
-                  {courseTypes.map((type) => (
-                    <Button
-                      key={type.course_type_id}
-                      variant={selectedCourseType === type.course_type_id ? "default" : "outline"}
-                      onClick={() => {
-                        setSelectedCourseType(type.course_type_id)
-                        setSelectedCourseTypeName(type.course_type_name)
-                        if (currentStep === 2) setCurrentStep(3)
-                      }}
-                      className="h-10 text-base px-8 whitespace-nowrap"
-                    >
-                      {type.course_type_name}
-                    </Button>
-                  ))}
-                </div>
-              </div>
+            <div className="grid grid-cols-4 gap-3">
+              {courseTypes.map((type) => (
+                <Button
+                  key={type.course_type_id}
+                  variant={selectedCourseType === type.course_type_id ? "default" : "outline"}
+                  onClick={() => {
+                    setSelectedCourseType(type.course_type_id)
+                    setSelectedCourseTypeName(type.course_type_name)
+                    if (currentStep === 2) setCurrentStep(3)
+                  }}
+                  className="h-12 text-lg font-semibold"
+                >
+                  {type.course_type_name}
+                </Button>
+              ))}
             </div>
           </div>
         )}
@@ -414,13 +401,7 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
         {/* Step 3: 단원 선택 */}
         {currentStep >= 3 && selectedCourseType && courseStructure.length > 0 && (
           <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-semibold">
-                {currentStep > 3 ? <Check className="w-5 h-5" /> : "3"}
-              </div>
-              <Label className="text-lg font-semibold">단원을 선택해주세요</Label>
-            </div>
-            <div className="ml-11">
+            <div>
               <Select
                 value={selectedUnitIndex?.toString()}
                 onValueChange={(value) => {
@@ -430,7 +411,7 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
                   if (currentStep === 3) setCurrentStep(4)
                 }}
               >
-                <SelectTrigger className="h-14 text-base">
+                <SelectTrigger className="h-14 text-lg font-semibold">
                   <SelectValue placeholder="단원을 선택하세요">
                     {selectedUnitIndex !== null && courseStructure[selectedUnitIndex] && (
                       `${selectedUnitIndex + 1}단원: ${courseStructure[selectedUnitIndex].section_name || `${selectedUnitIndex + 1}단원`}`
@@ -439,7 +420,7 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
                 </SelectTrigger>
                 <SelectContent>
                   {courseStructure.map((scope, index) => (
-                    <SelectItem key={index} value={index.toString()}>
+                    <SelectItem key={index} value={index.toString()} className="text-lg">
                       {index + 1}단원: {scope.section_name || `${index + 1}단원`}
                     </SelectItem>
                   ))}
@@ -452,13 +433,7 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
         {/* Step 4: 차시 선택 */}
         {currentStep >= 4 && selectedUnitIndex !== null && courseStructure[selectedUnitIndex]?.section_weeks && (
           <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-semibold">
-                  {currentStep > 4 ? <Check className="w-5 h-5" /> : "4"}
-                </div>
-                <Label className="text-lg font-semibold">차시를 선택해주세요 (복수 선택 가능)</Label>
-              </div>
+            <div className="flex items-center justify-end">
               <Button
                 variant="ghost"
                 size="sm"
@@ -467,12 +442,12 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
                   setSelectedLessonIndices(allWeekIndices)
                   if (currentStep === 4) setCurrentStep(5)
                 }}
-                className="text-primary hover:text-primary"
+                className="text-primary hover:text-primary text-base font-semibold"
               >
                 전체 선택
               </Button>
             </div>
-            <div className="ml-11 space-y-3">
+            <div className="space-y-3">
               <div className="space-y-2 max-h-[300px] overflow-y-auto">
                 {courseStructure[selectedUnitIndex].section_weeks.map((week: any, weekIndex: number) => (
                   <div
@@ -481,7 +456,7 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
                   >
                     <label
                       htmlFor={`lesson-${weekIndex}`}
-                      className="flex items-center gap-3 p-3 cursor-pointer"
+                      className="flex items-center gap-3 p-4 cursor-pointer"
                     >
                       <Checkbox
                         id={`lesson-${weekIndex}`}
@@ -492,25 +467,25 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
                             setCurrentStep(5)
                           }
                         }}
-                        className="w-5 h-5"
+                        className="w-6 h-6"
                       />
                       <div className="flex-1">
                         {week.section_content_name ? (
                           <>
-                            <span className="font-semibold">
+                            <span className="font-semibold text-lg">
                               [{week.section_content_order}차시]
                             </span>
-                            <span className="ml-2">
+                            <span className="ml-2 text-lg">
                               {week.section_content_name}
                             </span>
                             {week.section_content_pages && week.section_content_pages.length > 0 && (
-                              <span className="ml-2 text-sm text-muted-foreground">
+                              <span className="ml-2 text-base text-muted-foreground">
                                 ({Math.min(...week.section_content_pages)}-{Math.max(...week.section_content_pages)}쪽)
                               </span>
                             )}
                           </>
                         ) : (
-                          <span className="font-semibold">
+                          <span className="font-semibold text-lg">
                             [{weekIndex + 1}차시]
                           </span>
                         )}
@@ -526,14 +501,8 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
         {/* Step 5: 세부 설정 */}
         {currentStep >= 5 && (
           <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-semibold">
-                5
-              </div>
-              <Label className="text-lg font-semibold">세부 옵션 설정</Label>
-            </div>
-            <div className="ml-11 space-y-6">
-              <p className="text-sm text-muted-foreground">
+            <div className="space-y-6">
+              <p className="text-base text-muted-foreground">
                 AI 추천을 받거나 세부 옵션을 조정하세요
               </p>
 
@@ -541,15 +510,19 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
               <div className="flex gap-3">
                 <Button
                   variant="default"
-                  className="flex-1 h-12"
-                  onClick={() => setShowAIPanel(true)}
+                  className="flex-1 h-14 text-lg font-semibold"
+                  onClick={handleAIRecommendClick}
                 >
-                  <Sparkles className="w-4 h-4 mr-2" />
+                  <Sparkles className="w-5 h-5 mr-2" />
                   AI 추천 받기
                 </Button>
                 <Button
                   variant="outline"
-                  className="flex-1 h-12"
+                  className="flex-1 h-14 text-lg font-semibold"
+                  onClick={() => {
+                    setShowManualPanel(true)
+                    setShowAIPanel(false)
+                  }}
                 >
                   직접 설정
                 </Button>
@@ -557,198 +530,150 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
             </div>
           </div>
         )}
-
-        {/* Navigation Buttons */}
-        {currentStep > 2 && currentStep < 5 && (
-          <div className="flex justify-between pt-6 border-t">
-            <Button
-              variant="outline"
-              onClick={() => setCurrentStep(currentStep - 1)}
-            >
-              이전
-            </Button>
-          </div>
-        )}
       </CardContent>
     </Card>
 
-      {/* Right: AI Recommendation Panel */}
+      {/* Right: Manual Settings Panel */}
       {currentStep >= 5 ? (
-        showAIPanel ? (
-        <Card className="w-[420px] h-fit">
-          <CardHeader className="pb-4">
-            <div className="flex items-center gap-2 text-primary">
-              <Sparkles className="w-5 h-5" />
-              <CardTitle className="text-lg">구성 형태</CardTitle>
-            </div>
-            <p className="text-sm text-muted-foreground">추천된 형식으로 빠른 형태를 클릭해 해당 형식으로 생성할 수 있습니다</p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* 구성 형태 */}
-            <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: '개별 활동', icon: '👤' },
-                  { label: '짝 활동', icon: '👥' },
-                  { label: '모둠 활동', icon: '👨‍👩‍👧‍👦' }
-                ].map((type) => (
-                  <Button
-                    key={type.label}
-                    variant={aiFormationType.includes(type.label) ? "default" : "outline"}
-                    className="h-20 flex flex-col items-center justify-center gap-2"
-                    onClick={() => setAiFormationType(toggleAIOption(aiFormationType, type.label))}
-                  >
-                    <span className="text-2xl">{type.icon}</span>
-                    <span className="text-xs">{type.label}</span>
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* 학습 활동 난이도 */}
-            <div className="space-y-3">
+        showManualPanel ? (
+          <Card className="h-fit">
+            <CardHeader className="pb-4">
               <div className="flex items-center gap-2 text-primary">
-                <span>📊</span>
-                <Label className="text-sm font-semibold">학습 활동 난이도</Label>
+                <CardTitle className="text-2xl font-bold">세부항목</CardTitle>
               </div>
-              <p className="text-sm text-muted-foreground">생성될 수업자료의 학습 난이도를 조절합니다</p>
-              <div className="grid grid-cols-3 gap-2">
-                {['쉬움', '보통', '어려움'].map((level, idx) => (
-                  <Button
-                    key={level}
-                    variant={aiRecommendedDifficulty === idx + 1 ? "default" : "outline"}
-                    onClick={() => setAiRecommendedDifficulty(idx + 1)}
-                  >
-                    {level}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* 참여 학생 수 */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-primary">
-                <span>👨‍🎓</span>
-                <Label className="text-sm font-semibold">참여 학생 수</Label>
-              </div>
-              <p className="text-sm text-muted-foreground">클래스에 있는 정보 참여 학생 수를 조절합니다</p>
-              <div className="space-y-2">
-                <Slider
-                  value={[aiNumStudents]}
-                  onValueChange={(value) => setAiNumStudents(value[0])}
-                  min={1}
-                  max={50}
-                  step={1}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>1명</span>
-                  <span className="font-semibold text-primary">{aiNumStudents}명</span>
-                  <span>50명</span>
+              <p className="text-base text-muted-foreground">직접 세부항목을 설정할 수 있습니다</p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Same content as AI panel but without AI branding */}
+              {/* 구성 형태 */}
+              <div className="space-y-3">
+                <Label className="text-lg font-semibold">구성 형태</Label>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { label: '개별 활동', icon: '👤' },
+                    { label: '짝 활동', icon: '👥' },
+                    { label: '모둠 활동', icon: '👨‍👩‍👧‍👦' }
+                  ].map((type) => (
+                    <Button
+                      key={type.label}
+                      variant={aiFormationType.includes(type.label) ? "default" : "outline"}
+                      className="h-24 flex flex-col items-center justify-center gap-2"
+                      onClick={() => setAiFormationType(toggleAIOption(aiFormationType, type.label))}
+                    >
+                      <span className="text-3xl">{type.icon}</span>
+                      <span className="text-base font-semibold">{type.label}</span>
+                    </Button>
+                  ))}
                 </div>
               </div>
-            </div>
 
-            {/* 소요 시간 */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-primary">
-                <span>⏰</span>
-                <Label className="text-sm font-semibold">소요 시간</Label>
-              </div>
-              <p className="text-sm text-muted-foreground">소요시간을 설정해 생성될 수업자료의 분량을 조절합니다</p>
-              <div className="space-y-2">
-                <Slider
-                  value={[aiClassDuration]}
-                  onValueChange={(value) => setAiClassDuration(value[0])}
-                  min={0}
-                  max={60}
-                  step={5}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>0분</span>
-                  <span className="font-semibold text-primary">{aiClassDuration}분</span>
-                  <span>60분</span>
+              {/* 학습 활동 난이도 */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">📊</span>
+                  <Label className="text-lg font-semibold">학습 활동 난이도</Label>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  {['쉬움', '보통', '어려움'].map((level, idx) => (
+                    <Button
+                      key={level}
+                      variant={aiRecommendedDifficulty === idx + 1 ? "default" : "outline"}
+                      onClick={() => setAiRecommendedDifficulty(idx + 1)}
+                      className="h-12 text-base font-semibold"
+                    >
+                      {level}
+                    </Button>
+                  ))}
                 </div>
               </div>
-            </div>
 
-            {/* 교수법 */}
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold">교수법</Label>
-              <div className="space-y-2">
-                {[
-                  '교과서 중심수업',
-                  '토론 및 탐색',
-                  '프로젝트 기반',
-                  '인터랙 및 게임 활동',
-                  '개인 기반 활동',
-                  '실험 소모의 협력'
-                ].map((method) => (
-                  <label
-                    key={method}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <input
-                      type="radio"
-                      name="teaching-method"
-                      checked={aiTeachingStyle.includes(method)}
-                      onChange={() => setAiTeachingStyle([method])}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">{method}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-          <div className="border-t p-4 flex justify-end">
-            <Button
-              onClick={applyAIRecommendations}
-              disabled={!selectedCourseType}
-              className="gap-2"
-            >
-              다음
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-          </div>
-        </Card>
-        ) : (
-          <Card className="h-fit flex items-center justify-center min-h-[400px]">
-            <CardContent className="text-center py-12">
-              <div className="space-y-4">
-                <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
-                  <Sparkles className="w-8 h-8 text-primary" />
+              {/* 참여 학생 수 */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">👨‍🎓</span>
+                  <Label className="text-lg font-semibold">참여 학생 수</Label>
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">AI 추천을 받아보세요</h3>
-                  <p className="text-sm text-muted-foreground">
-                    왼쪽에서 세부 옵션 설정 단계의<br />
-                    "AI 추천 받기" 버튼을 클릭하세요
-                  </p>
+                <div className="space-y-2">
+                  <Slider
+                    value={[aiNumStudents]}
+                    onValueChange={(value) => setAiNumStudents(value[0])}
+                    min={1}
+                    max={50}
+                    step={1}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-base text-muted-foreground">
+                    <span>1명</span>
+                    <span className="font-semibold text-primary text-lg">{aiNumStudents}명</span>
+                    <span>50명</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 소요 시간 */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">⏰</span>
+                  <Label className="text-lg font-semibold">소요 시간</Label>
+                </div>
+                <div className="space-y-2">
+                  <Slider
+                    value={[aiClassDuration]}
+                    onValueChange={(value) => setAiClassDuration(value[0])}
+                    min={0}
+                    max={60}
+                    step={5}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-base text-muted-foreground">
+                    <span>0분</span>
+                    <span className="font-semibold text-primary text-lg">{aiClassDuration}분</span>
+                    <span>60분</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 수업 스타일 */}
+              <div className="space-y-3">
+                <Label className="text-lg font-semibold">수업 스타일</Label>
+                <div className="space-y-3">
+                  {[
+                    '교과서 중심 수업',
+                    '의사소통 및 협력',
+                    '프로젝트 기반',
+                    '만들기 및 제작',
+                    '게임 기반'
+                  ].map((method) => (
+                    <label
+                      key={method}
+                      className="flex items-center gap-3 cursor-pointer"
+                    >
+                      <input
+                        type="radio"
+                        name="teaching-method"
+                        checked={aiTeachingStyle.includes(method)}
+                        onChange={() => setAiTeachingStyle([method])}
+                        className="w-5 h-5"
+                      />
+                      <span className="text-base font-medium">{method}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
             </CardContent>
-          </Card>
-        )
-      ) : (
-        <Card className="h-fit flex items-center justify-center min-h-[400px]">
-          <CardContent className="text-center py-12">
-            <div className="space-y-4">
-              <div className="w-16 h-16 mx-auto bg-muted rounded-full flex items-center justify-center">
-                <ArrowRight className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold mb-2">단계별로 진행하세요</h3>
-                <p className="text-sm text-muted-foreground">
-                  왼쪽에서 교과 정보를 선택하면<br />
-                  AI 추천 설정을 진행할 수 있습니다
-                </p>
-              </div>
+            <div className="border-t p-6 flex justify-end">
+              <Button
+                onClick={applyAIRecommendations}
+                disabled={!selectedCourseType}
+                className="gap-2 h-12 text-lg font-semibold px-8"
+              >
+                다음
+                <ArrowRight className="w-5 h-5" />
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </Card>
+        ) : null
+      ) : null}
     </div>
   )
 }

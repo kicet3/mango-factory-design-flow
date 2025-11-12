@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Progress } from "@/components/ui/progress"
 import { FileText, Search, CheckCircle, Sparkles, Plus, Trash2, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { fetchConversions, generateMaterials, type ConversionSummary, type SubjectData } from "@/services/conversions"
@@ -46,6 +47,7 @@ export function TeachingPlanSelectorV2({ onSelect, courseData }: TeachingPlanSel
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [progress, setProgress] = useState(0)
 
   // 교과목 데이터 폼
   const [showSubjectForm, setShowSubjectForm] = useState(false)
@@ -161,13 +163,25 @@ export function TeachingPlanSelectorV2({ onSelect, courseData }: TeachingPlanSel
     }
 
     setGenerating(true)
+    setProgress(0)
+
+    // Progress bar animation
+    const progressInterval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 90) return 90
+        return prev + 2
+      })
+    }, 100)
+
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const accessToken = session?.access_token
 
       if (!accessToken) {
         toast.error("인증 토큰을 가져올 수 없습니다. 다시 로그인해주세요.")
+        clearInterval(progressInterval)
         setGenerating(false)
+        setProgress(0)
         return
       }
 
@@ -181,11 +195,13 @@ export function TeachingPlanSelectorV2({ onSelect, courseData }: TeachingPlanSel
         preserve_structure: true
       }, accessToken)
 
+      clearInterval(progressInterval)
+      setProgress(100)
+
       toast.success(
-        `자료 생성 완료!\n${response.num_items_generated}개 아이템이 생성되었습니다 (${response.generation_time.toFixed(2)}초)`,
+        `자료 생성이 완료되었습니다!\n${response.num_items_generated}개 아이템이 생성되었습니다`,
         {
           duration: 3000,
-          position: 'top-right'
         }
       )
 
@@ -194,15 +210,15 @@ export function TeachingPlanSelectorV2({ onSelect, courseData }: TeachingPlanSel
       }, 1500)
     } catch (error) {
       console.error('Material generation failed:', error)
+      clearInterval(progressInterval)
       toast.error(
-        error instanceof Error ? error.message : '자료 생성에 실패했습니다',
+        error instanceof Error ? error.message : '자료 생성에 실패했습니다. 다시 시도해주세요.',
         {
-          duration: 3000,
-          position: 'top-right'
+          duration: 4000,
         }
       )
-    } finally {
       setGenerating(false)
+      setProgress(0)
     }
   }
 
@@ -249,14 +265,59 @@ export function TeachingPlanSelectorV2({ onSelect, courseData }: TeachingPlanSel
     )
   }
 
+  if (generating) {
+    return (
+      <Card className="animate-scale-in">
+        <CardContent className="py-16">
+          <div className="text-center space-y-6 max-w-2xl mx-auto">
+            <div className="mx-auto w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
+              <Sparkles className="w-10 h-10 text-primary animate-pulse" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-2xl font-bold">AI가 교안 자료를 생성하고 있습니다</h3>
+              <p className="text-lg text-muted-foreground">
+                잠시만 기다려주세요. 선택하신 교안 양식에 맞춰 자료를 생성하고 있습니다.
+              </p>
+            </div>
+
+            <div className="w-full max-w-md mx-auto space-y-3">
+              <Progress value={progress} className="w-full h-3" />
+              <p className="text-xl font-semibold text-primary">{Math.round(progress)}% 완료</p>
+            </div>
+
+            <div className="flex flex-col items-center gap-3 mt-8">
+              <div className="flex items-center gap-2 text-base text-muted-foreground">
+                <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                <span>교과서 내용 분석 중...</span>
+              </div>
+              <div className="flex items-center gap-2 text-base text-muted-foreground">
+                <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                <span>교안 양식 적용 중...</span>
+              </div>
+              <div className="flex items-center gap-2 text-base text-muted-foreground">
+                <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                <span>최종 자료 생성 중...</span>
+              </div>
+            </div>
+
+            <p className="text-base text-muted-foreground max-w-lg mx-auto mt-8">
+              *AI 생성자료는 때때로 완벽하지 않아 결과가 기대와 다를 수 있습니다
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card className="animate-scale-in">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="w-5 h-5 text-primary" />
+        <CardTitle className="flex items-center gap-2 text-2xl">
+          <FileText className="w-6 h-6 text-primary" />
           교안 선택
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-lg">
           생성할 교안의 형태를 선택해주세요.
         </CardDescription>
       </CardHeader>
@@ -361,11 +422,11 @@ export function TeachingPlanSelectorV2({ onSelect, courseData }: TeachingPlanSel
             onClick={handleGenerate}
             disabled={!selectedPlanId || generating}
             size="lg"
-            className="gap-2"
+            className="gap-2 h-14 text-lg font-semibold px-8"
           >
-            {generating && <Loader2 className="w-4 h-4 animate-spin" />}
+            {generating && <Loader2 className="w-5 h-5 animate-spin" />}
             {generating ? '생성 중...' : '자료 생성하기'}
-            {!generating && <Sparkles className="w-4 h-4" />}
+            {!generating && <Sparkles className="w-5 h-5" />}
           </Button>
         </div>
       </CardContent>

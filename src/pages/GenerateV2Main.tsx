@@ -115,60 +115,25 @@ export default function GenerateV2Main() {
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-primary-light/10 via-background to-secondary/20">
         <div className="container mx-auto max-w-5xl px-6 py-8">
-          {/* Progress Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-3xl font-bold">AI 기반 교안 자료 생성</h1>
-              <Badge variant="outline">
-                단계 {getStepNumber()}/3
-              </Badge>
-            </div>
-            <div className="flex items-center gap-4">
-              {['교과서 선택', '교안 선택', 'AI 생성'].map((stepName, index) => (
-                <div key={stepName} className="flex items-center gap-2">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base font-medium transition-colors ${
-                    index < getStepNumber() ? 'bg-primary text-primary-foreground' :
-                    index === getStepNumber() - 1 ? 'bg-primary text-primary-foreground' :
-                    'bg-muted text-muted-foreground'
-                  }`}>
-                    {index + 1}
-                  </div>
-                  <span className={`text-base ${index < getStepNumber() ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                    {stepName}
-                  </span>
-                  {index < 2 && (
-                    <ArrowRight className="w-4 h-4 text-muted-foreground mx-2" />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
 
           {/* Step Content */}
           {step === 'course' && (
-            <div className="animate-in slide-in-from-right-10 fade-in duration-500">
+            <div className="animate-in slide-in-from-right-10 fade-in duration-700">
               <CourseSelector onSubmit={handleCourseSubmit} />
             </div>
           )}
 
           {step === 'plan' && courseData && (
-            <div className="animate-in slide-in-from-right-10 fade-in duration-500">
+            <div className="animate-in slide-in-from-right-10 fade-in duration-700">
               <TeachingPlanSelectorV2
                 onSelect={handlePlanSelect}
                 courseData={courseData}
               />
-
-              <div className="mt-6 flex justify-between">
-                <Button variant="outline" onClick={() => setStep('course')}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  이전
-                </Button>
-              </div>
             </div>
           )}
 
           {step === 'generating' && generationResponseId && (
-            <div className="animate-in slide-in-from-right-10 fade-in duration-500">
+            <div className="animate-in slide-in-from-right-10 fade-in duration-700">
               <GenerationProgressV2
                 responseId={generationResponseId}
                 onComplete={handleGenerationComplete}

@@ -64,11 +64,11 @@ export function Layout({ children }: LayoutProps) {
         
         <SidebarInset>
           {/* Top Navigation */}
-          <header className="flex h-16 items-center justify-between px-6 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <header className="fixed top-0 left-0 right-0 z-[1] flex h-[5.33rem] items-center justify-between px-6 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="flex items-center gap-4">
               <SidebarTrigger />
             </div>
-            
+
             {/* Right side - User Menu or Login */}
             <div className="flex items-center gap-3">
               {user ? (
@@ -122,7 +122,7 @@ export function Layout({ children }: LayoutProps) {
           </header>
 
           {/* Main Content */}
-          <main className="flex-1">
+          <main className="flex-1 pt-[5.33rem]">
             {children}
           </main>
         </SidebarInset>

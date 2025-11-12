@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from "react-router-dom"
+import { NavLink, useLocation, useNavigate } from "react-router-dom"
 import { Home, Clock, HelpCircle, User, Settings, Sparkles, LayoutGrid } from "lucide-react"
 import {
   Sidebar,
@@ -34,6 +34,7 @@ const supportItems = [
 export function MangoSidebar() {
   const { state } = useSidebar()
   const location = useLocation()
+  const navigate = useNavigate()
   const currentPath = location.pathname
 
   const isActive = (path: string) => currentPath === path
@@ -42,14 +43,17 @@ export function MangoSidebar() {
 
   return (
     <Sidebar className="border-r border-border/40">
-      <SidebarHeader className="h-16 px-6 border-b border-border/40 flex items-center">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
+      <SidebarHeader className="h-[5.33rem] px-6 border-b border-border/40 flex items-center justify-center">
+        <div
+          className="flex items-center gap-3 w-full cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => navigate('/')}
+        >
+          <div className="w-[3.33rem] h-[3.33rem] flex items-center justify-center flex-shrink-0">
             <img src={mangoLogo} alt="MangoFactory Logo" className="w-full h-full object-contain" />
           </div>
           {state === "expanded" && (
-            <div>
-              <h1 className="font-gilroy font-bold text-lg text-foreground">MangoFactory</h1>
+            <div className="flex items-center">
+              <h1 className="font-gilroy font-bold text-xl text-foreground">MangoFactory</h1>
             </div>
           )}
         </div>
