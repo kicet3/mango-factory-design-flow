@@ -349,7 +349,7 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
       {/* Left: Course Selection Card */}
       <Card className="h-fit">
         <CardHeader>
-          <CardTitle className="text-3xl font-bold">교과 정보 입력</CardTitle>
+          <CardTitle className="text-2xl font-bold">교과 정보 입력</CardTitle>
         </CardHeader>
       <CardContent className="space-y-8">
         {/* Step 1 & 2: 학년 + 학기 (한 줄) */}
@@ -657,10 +657,15 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
                       className="flex items-center gap-3 cursor-pointer"
                     >
                       <input
-                        type="radio"
-                        name="teaching-method"
+                        type="checkbox"
                         checked={aiTeachingStyle.includes(method)}
-                        onChange={() => setAiTeachingStyle([method])}
+                        onChange={() => {
+                          if (aiTeachingStyle.includes(method)) {
+                            setAiTeachingStyle(aiTeachingStyle.filter(s => s !== method))
+                          } else {
+                            setAiTeachingStyle([...aiTeachingStyle, method])
+                          }
+                        }}
                         className="w-5 h-5"
                       />
                       <span className="text-base font-medium">{method}</span>
