@@ -183,7 +183,7 @@ export default function GenerateV2Upload() {
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-primary-light/10 via-background to-secondary/20">
-        <div className="container mx-auto max-w-7xl px-6 py-8">
+        <div className="container mx-auto max-w-7xl px-6 py-8 scale-90 origin-top">
           {/* 헤더 */}
           <div className="mb-8">
             <div className="flex items-center justify-between">
@@ -223,7 +223,7 @@ export default function GenerateV2Upload() {
                     <div>
                       <CardTitle className="text-2xl">수업 카드</CardTitle>
                       <CardDescription className="text-base mt-1">
-                        수업에 필요한 다양한 활동 카드를 생성합니다
+                        수업 자료에 대한 설명을 선택합니다
                       </CardDescription>
                     </div>
                   </div>
@@ -390,7 +390,7 @@ export default function GenerateV2Upload() {
                     <div>
                       <CardTitle className="text-2xl">수업 소개</CardTitle>
                       <CardDescription className="text-base mt-1">
-                        수업 개요 및 소개 자료를 생성합니다
+                        수업 개요를 작성합니다.
                       </CardDescription>
                     </div>
                   </div>
@@ -464,7 +464,7 @@ export default function GenerateV2Upload() {
                     <div>
                       <CardTitle className="text-2xl">수업 자료</CardTitle>
                       <CardDescription className="text-base mt-1">
-                        수업에 필요한 학습 자료를 생성합니다
+                        수업에 필요한 학습 자료를 업로드합니다.
                       </CardDescription>
                     </div>
                   </div>
