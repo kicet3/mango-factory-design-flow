@@ -345,9 +345,9 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
   }
 
   return (
-    <div className={`grid gap-6 ${showManualPanel ? 'grid-cols-2' : 'grid-cols-1 max-w-3xl mx-auto'}`}>
-      {/* Left: Course Selection Card */}
-      <Card className="h-fit">
+    <div className="flex gap-6 justify-center">
+      {/* Left: Course Selection Card - 고정 크기 */}
+      <Card className="h-fit w-full max-w-3xl flex-shrink-0">
         <CardHeader>
           <CardTitle className="text-2xl font-bold">교과 정보 입력</CardTitle>
         </CardHeader>
@@ -533,9 +533,9 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
       </CardContent>
     </Card>
 
-      {/* Right: Manual Settings Panel */}
-      {currentStep >= 5 ? (
-        showManualPanel ? (
+      {/* Right: Manual Settings Panel - 슬라이드 애니메이션 */}
+      {currentStep >= 5 && showManualPanel && (
+        <div className="slide-in-smooth w-full max-w-3xl flex-shrink-0">
           <Card className="h-fit">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2 text-primary">
@@ -685,8 +685,8 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
               </Button>
             </div>
           </Card>
-        ) : null
-      ) : null}
+        </div>
+      )}
     </div>
   )
 }

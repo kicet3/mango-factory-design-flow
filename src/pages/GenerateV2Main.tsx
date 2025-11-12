@@ -125,8 +125,8 @@ export default function GenerateV2Main() {
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-primary-light/10 via-background to-secondary/20">
-        <div className="container mx-auto max-w-5xl px-6 py-8 scale-90 origin-top">
-          <div className="relative overflow-hidden min-h-[600px]">
+        <div className="container mx-auto max-w-[1600px] px-6 py-8 scale-90 origin-top">
+          <div className="relative overflow-visible min-h-[600px]">
             {/* Previous Step - Sliding Out */}
             {isTransitioning && prevStep === 'course' && (
               <div className="absolute inset-0 slide-out-smooth">
