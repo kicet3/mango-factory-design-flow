@@ -347,7 +347,7 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
   return (
     <div className="flex gap-6 justify-center">
       {/* Left: Course Selection Card - 고정 크기 */}
-      <Card className="h-fit w-full max-w-3xl flex-shrink-0">
+      <Card className="h-fit w-full max-w-3xl flex-shrink-0 min-h-[800px]">
         <CardHeader>
           <CardTitle className="text-2xl font-bold">교과 정보 입력</CardTitle>
         </CardHeader>
@@ -535,22 +535,22 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
 
       {/* Right: Manual Settings Panel - 슬라이드 애니메이션 */}
       {currentStep >= 5 && showManualPanel && (
-        <div className="slide-in-smooth w-full max-w-3xl flex-shrink-0">
-          <Card className="h-fit">
-            <CardHeader className="pb-4">
+        <div className="slide-in-smooth w-full max-w-[430px] flex-shrink-0 min-h-[800px]">
+          <Card className="h-full flex flex-col">
+            <CardHeader className="pb-3 flex-shrink-0">
               <div className="flex items-center gap-2 text-primary">
-                <CardTitle className="text-2xl font-bold">세부항목</CardTitle>
+                <CardTitle className="text-xl font-bold">세부항목</CardTitle>
               </div>
-              <p className="text-base text-muted-foreground">직접 세부항목을 설정할 수 있습니다</p>
+              <p className="text-sm text-muted-foreground">직접 세부항목을 설정할 수 있습니다</p>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-5 flex-1 overflow-y-auto max-h-[calc(100vh-300px)]">
               {/* Same content as AI panel but without AI branding */}
               {/* 구성 형태 */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">⚙️</span>
+                  <span className="text-lg">⚙️</span>
                   <Label className="text-lg font-semibold">구성 형태</Label>
-                  <span className="text-sm text-muted-foreground ml-2">원하지 않는 형태는 클릭해 해제합니다</span>
+                  <span className="text-xs text-muted-foreground ml-2">원하지 않는 형태는 클릭해 해제합니다</span>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   {[
@@ -561,20 +561,20 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
                     <Button
                       key={type.label}
                       variant={aiFormationType.includes(type.label) ? "default" : "outline"}
-                      className="h-24 flex flex-col items-center justify-center gap-2"
+                      className="h-12 text-base"
                       onClick={() => setAiFormationType(toggleAIOption(aiFormationType, type.label))}
                     >
-                      <span className="text-3xl">{type.icon}</span>
-                      <span className="text-base font-semibold">{type.label}</span>
+                      <span className="mr-2">{type.icon}</span>
+                      {type.label}
                     </Button>
                   ))}
                 </div>
               </div>
 
               {/* 학습 활동 난이도 */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">📊</span>
+                  <span className="text-lg">📊</span>
                   <Label className="text-lg font-semibold">학습 활동 난이도</Label>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
@@ -583,7 +583,7 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
                       key={level}
                       variant={aiRecommendedDifficulty === idx + 1 ? "default" : "outline"}
                       onClick={() => setAiRecommendedDifficulty(idx + 1)}
-                      className="h-12 text-base font-semibold"
+                      className="h-12 text-base"
                     >
                       {level}
                     </Button>
@@ -592,9 +592,9 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
               </div>
 
               {/* 참여 학생 수 */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">👨‍🎓</span>
+                  <span className="text-lg">👨‍🎓</span>
                   <Label className="text-lg font-semibold">참여 학생 수</Label>
                 </div>
                 <div className="space-y-2">
@@ -606,18 +606,18 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
                     step={1}
                     className="w-full"
                   />
-                  <div className="flex justify-between text-base text-muted-foreground">
+                  <div className="flex justify-between text-sm text-muted-foreground">
                     <span>1명</span>
-                    <span className="font-semibold text-primary text-lg">{aiNumStudents}명</span>
+                    <span className="font-semibold text-primary text-base">{aiNumStudents}명</span>
                     <span>50명</span>
                   </div>
                 </div>
               </div>
 
               {/* 소요 시간 */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">⏰</span>
+                  <span className="text-lg">⏰</span>
                   <Label className="text-lg font-semibold">소요 시간</Label>
                 </div>
                 <div className="space-y-2">
@@ -629,22 +629,22 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
                     step={5}
                     className="w-full"
                   />
-                  <div className="flex justify-between text-base text-muted-foreground">
+                  <div className="flex justify-between text-sm text-muted-foreground">
                     <span>0분</span>
-                    <span className="font-semibold text-primary text-lg">{aiClassDuration}분</span>
+                    <span className="font-semibold text-primary text-base">{aiClassDuration}분</span>
                     <span>60분</span>
                   </div>
                 </div>
               </div>
 
               {/* 수업 스타일 */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">🪄</span>
+                  <span className="text-lg">🪄</span>
                   <Label className="text-lg font-semibold">수업 스타일</Label>
-                  <span className="text-sm text-muted-foreground ml-2">중복 선택 가능</span>
+                  <span className="text-xs text-muted-foreground ml-2">중복 선택 가능</span>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {[
                     '교과서 중심 수업',
                     '의사소통 및 협력',
@@ -654,7 +654,7 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
                   ].map((method) => (
                     <label
                       key={method}
-                      className="flex items-center gap-3 cursor-pointer"
+                      className="flex items-center gap-2 cursor-pointer"
                     >
                       <input
                         type="checkbox"
@@ -674,7 +674,7 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
                 </div>
               </div>
             </CardContent>
-            <div className="border-t p-6 flex justify-end">
+            <div className="border-t p-6 flex justify-end flex-shrink-0">
               <Button
                 onClick={applyAIRecommendations}
                 disabled={!selectedCourseType}
