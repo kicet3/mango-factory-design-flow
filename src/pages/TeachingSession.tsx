@@ -696,21 +696,6 @@ export default function TeachingSession() {
               </div>
             </div>
 
-            {/* 하단 페이지 인디케이터 */}
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900/80 backdrop-blur z-10">
-              {conversion.slides.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentSlideIndex(index)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    index === currentSlideIndex
-                      ? 'bg-white w-8'
-                      : 'bg-white/50 hover:bg-white/75'
-                  }`}
-                  title={`슬라이드 ${index + 1}`}
-                />
-              ))}
-            </div>
           </>
         )}
       </div>

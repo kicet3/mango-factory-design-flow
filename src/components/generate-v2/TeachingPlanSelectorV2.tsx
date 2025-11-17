@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress"
 import { FileText, Search, CheckCircle, Sparkles, Plus, Trash2, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { fetchConversions, generateMaterials, type ConversionSummary, type SubjectData } from "@/services/conversions"
+import { fetchAllConversions, generateMaterials, type ConversionSummary, type SubjectData } from "@/services/conversions"
 import type { CourseData, TeachingPlanData } from "@/pages/GenerateV2Main"
 import { useAuth } from "@/hooks/use-auth"
 import { supabase } from "@/integrations/supabase/client"
@@ -62,7 +62,7 @@ export function TeachingPlanSelectorV2({ onSelect, courseData }: TeachingPlanSel
     courseData.additional_message ? [courseData.additional_message] : [""]
   )
   const [examples, setExamples] = useState<Example[]>([{ question: "", answer: "" }])
-  const [classDuration, setClassDuration] = useState<number>(courseData.expected_duration_min || 45)
+  const [classDuration, setClassDuration] = useState<number>(courseData.expected_duration_min || 20)
   const [numItems, setNumItems] = useState<number>(5)
 
   useEffect(() => {
@@ -85,12 +85,16 @@ export function TeachingPlanSelectorV2({ onSelect, courseData }: TeachingPlanSel
     try {
       setLoading(true)
 
-      // Load conversions from /conversions/ API
-      const response = await fetchConversions({
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
+
+      // Load all conversions from /conversions/all/list API
+      const response = await fetchAllConversions({
         page: 1,
         page_size: 100,
         success_only: true
-      })
+      }, accessToken)
 
       // Convert ConversionSummary to TeachingPlan format
       const convertedPlans: TeachingPlan[] = response.conversions.map((conversion) => ({
@@ -158,7 +162,8 @@ export function TeachingPlanSelectorV2({ onSelect, courseData }: TeachingPlanSel
         difficulty_id: courseData.difficulty_id,
         expected_duration_min: courseData.expected_duration_min,
         description: courseData.description,
-        additional_message: courseData.additional_message
+        additional_message: courseData.additional_message,
+        course_material_scope: courseData.course_material_scope || undefined
       }
     }
 
@@ -199,7 +204,7 @@ export function TeachingPlanSelectorV2({ onSelect, courseData }: TeachingPlanSel
       setProgress(100)
 
       toast.success(
-        `자료 생성이 완료되었습니다!\n${response.num_items_generated}개 아이템이 생성되었습니다`,
+        '자료 생성이 완료되었습니다.',
         {
           duration: 3000,
         }

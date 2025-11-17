@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, Plus, Trash2 } from "lucide-react"
-import { generateMaterials, fetchConversions, type SubjectData, type ConversionSummary } from "@/services/conversions"
+import { generateMaterials, fetchAllConversions, type SubjectData, type ConversionSummary } from "@/services/conversions"
 import { toast } from "sonner"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/hooks/use-auth"
@@ -30,10 +30,13 @@ export function GenerateMaterialDialog({
   const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [loadingConversions, setLoadingConversions] = useState(false)
+  const [loadingCourses, setLoadingCourses] = useState(false)
   const [conversions, setConversions] = useState<ConversionSummary[]>([])
+  const [courses, setCourses] = useState<any[]>([])
 
-  // Selected conversion
+  // Selected conversion and course
   const [selectedConversionId, setSelectedConversionId] = useState<string>("")
+  const [selectedCourseId, setSelectedCourseId] = useState<string>("")
   const [componentId, setComponentId] = useState<number | undefined>(undefined)
 
   // Form state
@@ -42,25 +45,30 @@ export function GenerateMaterialDialog({
   const [difficulty, setDifficulty] = useState<string>("medium")
   const [learningGoals, setLearningGoals] = useState<string[]>([""])
   const [examples, setExamples] = useState<Example[]>([{ question: "", answer: "" }])
-  const [classDuration, setClassDuration] = useState<number>(45)
+  const [classDuration, setClassDuration] = useState<number>(20)
   const [numItems, setNumItems] = useState<number>(5)
   const [preserveStructure, setPreserveStructure] = useState(true)
 
-  // Load conversions when dialog opens
+  // Load conversions and courses when dialog opens
   useEffect(() => {
     if (open) {
       loadConversionsList()
+      loadCoursesList()
     }
   }, [open])
 
   const loadConversionsList = async () => {
     setLoadingConversions(true)
     try {
-      const response = await fetchConversions({
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
+
+      const response = await fetchAllConversions({
         page: 1,
         page_size: 100,
         success_only: true
-      })
+      }, accessToken)
       setConversions(response.conversions)
 
       // Auto-select first conversion if available
@@ -72,6 +80,38 @@ export function GenerateMaterialDialog({
       toast.error('교안 목록을 불러오는데 실패했습니다')
     } finally {
       setLoadingConversions(false)
+    }
+  }
+
+  const loadCoursesList = async () => {
+    setLoadingCourses(true)
+    try {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('course_id, course_type_id, course_grade, course_semester_id, course_types!inner(course_type_name), raw_course_materials!inner(raw_course_material_id)')
+        .order('course_grade', { ascending: true })
+        .order('course_semester_id', { ascending: true })
+        .limit(100)
+
+      if (error) throw error
+
+      const formattedCourses = (data || []).map(course => ({
+        course_id: course.course_id,
+        raw_course_material_id: course.raw_course_materials?.raw_course_material_id,
+        display_name: `${course.course_types?.course_type_name} ${course.course_grade}학년 ${course.course_semester_id}학기`
+      }))
+
+      setCourses(formattedCourses)
+
+      // Auto-select first course if available
+      if (formattedCourses.length > 0) {
+        setSelectedCourseId(formattedCourses[0].course_id.toString())
+      }
+    } catch (error) {
+      console.error('Failed to fetch courses:', error)
+      toast.error('교과 목록을 불러오는데 실패했습니다')
+    } finally {
+      setLoadingCourses(false)
     }
   }
 
@@ -110,6 +150,11 @@ export function GenerateMaterialDialog({
       return
     }
 
+    if (!selectedCourseId) {
+      toast.error("교과를 선택해주세요")
+      return
+    }
+
     if (!subjectName.trim() || !topic.trim()) {
       toast.error("과목명과 주제는 필수 항목입니다")
       return
@@ -138,8 +183,17 @@ export function GenerateMaterialDialog({
         return
       }
 
+      // Find selected course to get raw_course_material_id
+      const selectedCourse = courses.find(c => c.course_id.toString() === selectedCourseId)
+      if (!selectedCourse?.raw_course_material_id) {
+        toast.error("교과 정보를 찾을 수 없습니다.")
+        setLoading(false)
+        return
+      }
+
       const response = await generateMaterials({
-        user_id: parseInt(user.id),
+        user_id: user.id,
+        course_id: selectedCourse.raw_course_material_id,
         conversion_id: parseInt(selectedConversionId),
         component_id: componentId,
         subject_data: subjectData,
@@ -161,7 +215,7 @@ export function GenerateMaterialDialog({
       }
 
       toast.success(
-        `자료 생성 완료!\n${response.num_items_generated}개 아이템이 생성되었습니다 (${response.generation_time.toFixed(2)}초)`,
+        '자료 생성이 완료되었습니다.',
         {
           duration: 4000,
           position: 'top-right'
@@ -175,7 +229,7 @@ export function GenerateMaterialDialog({
       setDifficulty("medium")
       setLearningGoals([""])
       setExamples([{ question: "", answer: "" }])
-      setClassDuration(45)
+      setClassDuration(20)
       setNumItems(5)
 
       onOpenChange(false)
@@ -244,6 +298,34 @@ export function GenerateMaterialDialog({
                 <p>• 스타일링: {selectedConversion.styling}</p>
                 <p>• 컴포넌트: {selectedConversion.total_components}개</p>
               </div>
+            )}
+          </div>
+
+          {/* 교과 선택 */}
+          <div className="space-y-2">
+            <Label htmlFor="course">교과 선택 *</Label>
+            {loadingCourses ? (
+              <div className="flex items-center justify-center py-3 border rounded-md">
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <span className="text-sm text-muted-foreground">교과 목록 로딩 중...</span>
+              </div>
+            ) : courses.length === 0 ? (
+              <div className="py-3 px-4 border rounded-md bg-muted/50">
+                <p className="text-sm text-muted-foreground">사용 가능한 교과가 없습니다</p>
+              </div>
+            ) : (
+              <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="교과를 선택하세요" />
+                </SelectTrigger>
+                <SelectContent>
+                  {courses.map((course) => (
+                    <SelectItem key={course.course_id} value={course.course_id.toString()}>
+                      {course.display_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </div>
 
@@ -376,7 +458,7 @@ export function GenerateMaterialDialog({
                 min={1}
                 max={180}
                 value={classDuration}
-                onChange={(e) => setClassDuration(parseInt(e.target.value) || 45)}
+                onChange={(e) => setClassDuration(parseInt(e.target.value) || 20)}
               />
               <p className="text-xs text-muted-foreground">
                 약 {Math.round(classDuration * 0.8)}~{Math.round(classDuration * 1.25)}개 아이템 생성

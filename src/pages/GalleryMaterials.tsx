@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/gallery/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConversionData, ConversionsResponse } from "@/types/conversion";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const ITEMS_PER_PAGE = 12;
 const API_BASE_URL = "http://127.0.0.1:8000";
@@ -28,8 +29,25 @@ const GalleryMaterials = () => {
   const fetchConversions = async (page: number) => {
     try {
       setLoading(true);
+
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+
       const response = await fetch(
-        `${API_BASE_URL}/conversions/?page=${page}&page_size=${ITEMS_PER_PAGE}`
+        `${API_BASE_URL}/conversions/?page=${page}&page_size=${ITEMS_PER_PAGE}`,
+        {
+          method: 'GET',
+          headers,
+        }
       );
 
       if (!response.ok) {

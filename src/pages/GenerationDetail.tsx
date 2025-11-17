@@ -6,12 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { RefreshCw, Edit2, Check, X, ArrowLeft, Play, ExternalLink, Share2, Save } from "lucide-react";
+import { RefreshCw, Edit2, Check, X, ArrowLeft, Play, ExternalLink, Share2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "@/components/ui/sonner";
 import { VersionTabs } from "@/components/VersionTabs";
-import { WebsiteEditor } from "@/components/generate-v2/WebsiteEditor";
 
 interface StatusType {
   generation_status_type_id: number;
@@ -127,7 +126,6 @@ const GenerationDetail: React.FC = () => {
   const [canShare, setCanShare] = useState(false);
   const [updatingShare, setUpdatingShare] = useState(false);
   const [downloadsCount, setDownloadsCount] = useState<number>(0);
-  const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -601,39 +599,6 @@ const GenerationDetail: React.FC = () => {
                   </div>
                 )}
               </div>
-              <div className="flex gap-2">
-                {!isEditMode ? (
-                  <Button
-                    onClick={() => setIsEditMode(true)}
-                    disabled={!data.output_path || !getStatusName(data.generation_status_type_id).toLowerCase().includes('완료')}
-                    variant="default"
-                  >
-                    <Edit2 className="w-4 h-4 mr-2" />
-                    편집
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      onClick={() => {
-                        // TODO: Save edited content
-                        toast.success('변경사항이 저장되었습니다.');
-                        setIsEditMode(false);
-                      }}
-                      variant="default"
-                    >
-                      <Save className="w-4 h-4 mr-2" />
-                      저장
-                    </Button>
-                    <Button
-                      onClick={() => setIsEditMode(false)}
-                      variant="outline"
-                    >
-                      <X className="w-4 h-4 mr-2" />
-                      취소
-                    </Button>
-                  </>
-                )}
-              </div>
             </div>
 
             <div className="flex items-center gap-2 mt-2">
@@ -657,26 +622,8 @@ const GenerationDetail: React.FC = () => {
         </CardHeader>
       </Card>
 
-      {/* Edit Mode: Show WebsiteEditor */}
-      {isEditMode && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Edit2 className="h-5 w-5" />
-              자료 편집
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="h-[600px]">
-              <WebsiteEditor />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Sharing Settings */}
-      {!isEditMode && (
-        <Card>
+      <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Share2 className="h-5 w-5" />
@@ -723,10 +670,8 @@ const GenerationDetail: React.FC = () => {
           )}
         </CardContent>
       </Card>
-      )}
 
       {/* Generation Settings */}
-      {!isEditMode && (
       <Card>
         <CardHeader>
           <CardTitle>생성 세팅</CardTitle>
@@ -802,10 +747,9 @@ const GenerationDetail: React.FC = () => {
           )}
         </CardContent>
       </Card>
-      )}
 
       {/* Course Material Scope */}
-      {!isEditMode && data.generation_attrs.course_material_scope && (
+      {data.generation_attrs.course_material_scope && (
         <Card>
           <CardHeader>
             <CardTitle>생성 범위</CardTitle>
@@ -838,7 +782,6 @@ const GenerationDetail: React.FC = () => {
       )}
 
       {/* Video Recommendations */}
-      {!isEditMode && (
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -906,7 +849,6 @@ const GenerationDetail: React.FC = () => {
           )}
         </CardContent>
       </Card>
-      )}
     </div>
   );
 };

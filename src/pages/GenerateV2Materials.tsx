@@ -39,16 +39,16 @@ const convertToMaterialCard = (material: MaterialSummary) => ({
   semester: "정보 없음", // API에 없는 정보
   subject: material.subject_name,
   unit: material.topic,
-  lesson: "정보 없음", // API에 없는 정보
+  lesson: material.content_name || "정보 없음", // content_name을 lesson에 표시
   title: material.material_name,
   previewImage: undefined, // API에 없는 정보
-  teachingStyle: [], // API에 없는 정보
-  activityType: [], // API에 없는 정보
-  competencies: [], // API에 없는 정보
+  teachingStyle: material.lesson_style || [], // API의 lesson_style 사용
+  activityType: material.activity_type || [], // API의 activity_type 사용
+  competencies: material.competency || [], // API의 competency 사용
   otherTags: [
     difficultyMap[material.difficulty] || material.difficulty,
     `${material.num_items_generated}개 아이템`,
-    `${material.class_duration_minutes}분`
+    material.class_duration_minutes ? `${material.class_duration_minutes}분` : null
   ].filter(Boolean),
   usageCount: 0, // API에 없는 정보
   templateUsageCount: material.num_items_generated,
@@ -249,8 +249,8 @@ export default function GenerateV2Materials() {
             </div>
           ) : (
             <>
-              {/* 교안 그리드 (3열 x 4행 = 12개) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* 교안 그리드 (반응형: 1~4열) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                 {materials.map((material) => (
                   <div key={material.id} className="transform transition-transform hover:scale-[1.02]">
                     <TeachingMaterialCard

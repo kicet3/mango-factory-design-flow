@@ -95,10 +95,11 @@ export interface ConversionDetail {
 }
 
 /**
- * 변환 작업 목록 조회
+ * 변환 작업 목록 조회 (사용자별)
  */
 export async function fetchConversions(
-  params: ConversionsListParams = {}
+  params: ConversionsListParams = {},
+  accessToken?: string
 ): Promise<ConversionsListResponse> {
   const {
     page = 1,
@@ -117,15 +118,63 @@ export async function fetchConversions(
     queryParams.append('user_id', user_id)
   }
 
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
+  }
+
   const response = await fetch(`${API_BASE_URL}/conversions/?${queryParams.toString()}`, {
     method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
   })
 
   if (!response.ok) {
     throw new Error(`Failed to fetch conversions: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * 전체 변환 작업 목록 조회 (모든 사용자)
+ */
+export async function fetchAllConversions(
+  params: ConversionsListParams = {},
+  accessToken?: string
+): Promise<ConversionsListResponse> {
+  const {
+    page = 1,
+    page_size = 12,
+    success_only = false
+  } = params
+
+  const queryParams = new URLSearchParams({
+    page: page.toString(),
+    page_size: page_size.toString()
+  })
+
+  if (success_only) {
+    queryParams.append('success_only', 'true')
+  }
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
+  }
+
+  const response = await fetch(`${API_BASE_URL}/conversions/all/list?${queryParams.toString()}`, {
+    method: 'GET',
+    headers,
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch all conversions: ${response.statusText}`)
   }
 
   return response.json()
@@ -171,6 +220,10 @@ export interface SubjectData {
     expected_duration_min: number
     description?: string
     additional_message?: string
+    course_material_scope?: {
+      course_sections_index?: number  // 선택한 단원 인덱스
+      course_weeks_indices?: number[]  // 선택한 차시 인덱스들
+    }
   }
 }
 
@@ -233,14 +286,19 @@ export async function generateMaterials(
 export interface MaterialSummary {
   material_id: number
   material_name: string
+  content_name?: string
   subject_name: string
   topic: string
   difficulty: string
   grade_level: string | null
   num_items_generated: number
-  class_duration_minutes: number
+  class_duration_minutes: number | null
   gpt_model: string
   created_at: string
+  activity_type?: string[]
+  lesson_style?: string[]
+  competency?: string[]
+  lesson_intro?: string
 }
 
 export interface MaterialsListResponse {

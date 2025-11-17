@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { supabase } from "@/integrations/supabase/client"
 
 type CardType = 'lesson-card' | 'lesson-intro' | 'lesson-materials' | null
 type MaterialFileType = '교사용 프레젠테이션' | '학생용 활동지' | '학생용 에듀테크' | '교사용 정답지' | '예시 작품' | '만들기 도안'
@@ -120,6 +121,10 @@ export default function GenerateV2Upload() {
     try {
       setIsGenerating(true)
 
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
+
       // FormData 생성
       const formData = new FormData()
 
@@ -135,7 +140,7 @@ export default function GenerateV2Upload() {
       if (lessonIntroText) formData.append('lesson_intro', lessonIntroText)
 
       // 수업 자료 파일들
-      uploadedFiles.forEach((uploadedFile, index) => {
+      uploadedFiles.forEach((uploadedFile) => {
         if (uploadedFile.file) {
           formData.append(`files`, uploadedFile.file)
           formData.append(`file_types`, uploadedFile.type)
@@ -149,8 +154,16 @@ export default function GenerateV2Upload() {
       formData.append('typescript', 'true')
 
       const apiUrl = import.meta.env.VITE_BACKEND_API_URL || 'http://127.0.0.1:8000'
+
+      // Prepare headers with JWT token
+      const headers: Record<string, string> = {}
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`
+      }
+
       const response = await fetch(`${apiUrl}/document-convert-react/convert`, {
         method: 'POST',
+        headers,
         body: formData,
       })
 

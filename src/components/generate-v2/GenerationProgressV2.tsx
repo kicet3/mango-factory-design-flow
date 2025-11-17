@@ -17,11 +17,11 @@ export function GenerationProgressV2({ responseId, onComplete }: GenerationProgr
   const [completed, setCompleted] = useState(false)
 
   useEffect(() => {
-    // Start progress animation
+    // Start progress animation (90초 기준: 95% / 90초 = 약 1.055%/초)
     const progressInterval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 95) return 95
-        return prev + 1
+        return prev + 1.055
       })
     }, 1000)
 

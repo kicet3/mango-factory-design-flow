@@ -18,7 +18,6 @@ import GalleryResults from "./pages/GalleryResults";
 import NotFound from "./pages/NotFound";
 import GenerateV2Upload from "./pages/GenerateV2Upload";
 import GenerateV2Flow from "./pages/GenerateV2Flow";
-import GenerateV2Editor from "./pages/GenerateV2Editor";
 import GenerateV2Main from "./pages/GenerateV2Main";
 import GenerateV2Materials from "./pages/GenerateV2Materials";
 import TeachingPlanEditor from "./pages/TeachingPlanEditor";
@@ -112,11 +111,6 @@ const App = () => (
             <Route path="/generate-v2/flow" element={
               <ProtectedRoute>
                 <GenerateV2Flow />
-              </ProtectedRoute>
-            } />
-            <Route path="/generate-v2/editor" element={
-              <ProtectedRoute>
-                <GenerateV2Editor />
               </ProtectedRoute>
             } />
             <Route path="/generate-v2/materials" element={

@@ -294,31 +294,32 @@ export function TeachingMaterialCard({
         </div>
 
         {/* 하단 버튼 */}
-        <div className="flex gap-3 pt-4">
+        <div className="flex gap-2 sm:gap-3 pt-4">
           <Button
             onClick={onStartLesson}
             size="lg"
-            className="flex-1 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white gap-2 h-14 text-lg font-semibold"
+            className="flex-1 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white gap-1 sm:gap-2 h-10 sm:h-12 md:h-14 text-sm sm:text-base md:text-lg font-semibold px-2 sm:px-4"
           >
-            <Play className="w-5 h-5" />
-            {startButtonText}
+            <Play className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="hidden xs:inline">{startButtonText}</span>
+            <span className="xs:hidden">시작</span>
           </Button>
           <Button
             onClick={onShare}
             variant="outline"
             size="lg"
-            className="gap-2 h-14 px-6"
+            className="gap-1 sm:gap-2 h-10 sm:h-12 md:h-14 px-3 sm:px-4 md:px-6"
           >
-            <Share2 className="w-5 h-5" />
+            <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
           {onDelete && (
             <Button
               onClick={onDelete}
               variant="outline"
               size="lg"
-              className="gap-2 h-14 px-6 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+              className="gap-1 sm:gap-2 h-10 sm:h-12 md:h-14 px-3 sm:px-4 md:px-6 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
             >
-              <Trash2 className="w-5 h-5" />
+              <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
           )}
         </div>

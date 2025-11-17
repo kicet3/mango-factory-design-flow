@@ -54,6 +54,7 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
   const [selectedCourseType, setSelectedCourseType] = useState<number | null>(null)
   const [selectedCourseTypeName, setSelectedCourseTypeName] = useState<string>("")
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
+  const [selectedRawCourseMaterialId, setSelectedRawCourseMaterialId] = useState<number | null>(null)
 
   const [teachingStyles, setTeachingStyles] = useState<TeachingStyle[]>([])
   const [selectedTeachingStyles, setSelectedTeachingStyles] = useState<number[]>([])
@@ -64,7 +65,7 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
   const [difficulties, setDifficulties] = useState<Difficulty[]>([])
   const [selectedDifficulty, setSelectedDifficulty] = useState<number>(2)
 
-  const [selectedDuration, setSelectedDuration] = useState<number>(45)
+  const [selectedDuration, setSelectedDuration] = useState<number>(20)
   const [description, setDescription] = useState<string>("")
 
   // Course material scope
@@ -239,8 +240,12 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
 
       if (!rawCourseMaterialsData) {
         setCourseStructure([])
+        setSelectedRawCourseMaterialId(null)
         return
       }
+
+      // Save raw_course_material_id to state
+      setSelectedRawCourseMaterialId(rawCourseMaterialsData.raw_course_material_id)
 
       const { data: courseStructureData, error: courseStructureError } = await supabase
         .from('course_material_structure_only')
@@ -295,7 +300,11 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
   }
 
   const handleAIRecommendClick = () => {
-    // AI 추천받기를 누르면 바로 다음 단계로
+    // AI 추천받기를 누르면 기본값을 적용하고 다음 단계로
+    if (aiRecommendedDifficulty !== null) {
+      setSelectedDifficulty(aiRecommendedDifficulty)
+    }
+    setSelectedDuration(aiClassDuration)
     handleSubmit()
   }
 
@@ -305,13 +314,13 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
       return
     }
 
-    if (!selectedCourseId) {
+    if (!selectedRawCourseMaterialId) {
       toast.error("교과 정보를 불러오는 중입니다. 잠시만 기다려주세요.")
       return
     }
 
     const courseData: CourseData = {
-      course_id: selectedCourseId,
+      course_id: selectedRawCourseMaterialId,
       course_type_id: selectedCourseType,
       course_type_name: selectedCourseTypeName,
       teaching_style_ids: selectedTeachingStyles,
@@ -439,12 +448,17 @@ export function CourseSelector({ onSubmit }: CourseSelectorProps) {
                 size="sm"
                 onClick={() => {
                   const allWeekIndices = courseStructure[selectedUnitIndex].section_weeks.map((_: any, idx: number) => idx)
-                  setSelectedLessonIndices(allWeekIndices)
-                  if (currentStep === 4) setCurrentStep(5)
+                  // 1개라도 선택되어 있으면 전체 해제, 아니면 전체 선택
+                  if (selectedLessonIndices.length > 0) {
+                    setSelectedLessonIndices([])
+                  } else {
+                    setSelectedLessonIndices(allWeekIndices)
+                    if (currentStep === 4) setCurrentStep(5)
+                  }
                 }}
                 className="text-primary hover:text-primary text-base font-semibold"
               >
-                전체 선택
+                {selectedLessonIndices.length > 0 ? '전체 해제' : '전체 선택'}
               </Button>
             </div>
             <div className="space-y-3">

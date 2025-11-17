@@ -127,12 +127,9 @@ export function GenerationFlow() {
         </Card>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button size="lg" onClick={() => navigate("/generate-v2/editor")}>
-            에디터에서 편집하기
+          <Button size="lg" onClick={() => navigate("/generate-v2/materials")}>
+            자료 목록으로 이동
             <ArrowRight className="ml-2 h-5 w-5" />
-          </Button>
-          <Button size="lg" variant="outline">
-            미리보기
           </Button>
         </div>
       </div>
