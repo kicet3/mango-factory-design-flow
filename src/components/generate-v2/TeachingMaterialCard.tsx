@@ -1,4 +1,4 @@
-import { Share2, Lock, Globe, Play, Eye, ThumbsUp, Trash2 } from "lucide-react"
+import { Share2, Lock, Globe, Play, Eye, ThumbsUp, Trash2, Edit } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -69,6 +69,7 @@ interface TeachingMaterialCardProps {
   onShare?: () => void
   onTogglePublic?: () => void
   onDelete?: () => void
+  onEdit?: () => void
 
   // 커스터마이징
   startButtonText?: string // 시작 버튼 텍스트 (기본값: "수업 시작하기")
@@ -99,6 +100,7 @@ export function TeachingMaterialCard({
   onShare,
   onTogglePublic,
   onDelete,
+  onEdit,
   startButtonText = "수업 시작하기",
 }: TeachingMaterialCardProps) {
 
@@ -304,6 +306,16 @@ export function TeachingMaterialCard({
             <span className="hidden xs:inline">{startButtonText}</span>
             <span className="xs:hidden">시작</span>
           </Button>
+          {onEdit && (
+            <Button
+              onClick={onEdit}
+              variant="outline"
+              size="lg"
+              className="gap-1 sm:gap-2 h-10 sm:h-12 md:h-14 px-3 sm:px-4 md:px-6"
+            >
+              <Edit className="w-4 h-4 sm:w-5 sm:h-5" />
+            </Button>
+          )}
           <Button
             onClick={onShare}
             variant="outline"

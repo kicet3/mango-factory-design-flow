@@ -35,11 +35,11 @@ const convertToMaterialCard = (material: MaterialSummary) => ({
   materialType: 'teacher_ppt' as const,
   createdAt: material.created_at,
   publisher: material.gpt_model, // GPT 모델을 출판사 위치에 표시
-  grade: material.grade_level || "정보 없음",
-  semester: "정보 없음", // API에 없는 정보
-  subject: material.subject_name,
-  unit: material.topic,
-  lesson: material.content_name || "정보 없음", // content_name을 lesson에 표시
+  grade: material.subject_name, // subject_name을 148번 라인에 표시
+  semester: "", // 빈 값
+  subject: material.content_name || "정보 없음", // content_name을 subject 위치에 표시
+  unit: "", // 빈 값
+  lesson: "", // 빈 값
   title: material.material_name,
   previewImage: undefined, // API에 없는 정보
   teachingStyle: material.lesson_style || [], // API의 lesson_style 사용
@@ -125,6 +125,11 @@ export default function GenerateV2Materials() {
   const handleStartLesson = (materialId: string, title: string) => {
     console.log("수업 시작:", title, "ID:", materialId)
     navigate(`/teaching-session/${materialId}`)
+  }
+
+  const handleEdit = (materialId: string, title: string) => {
+    console.log("수정:", title, "ID:", materialId)
+    navigate(`/gallery/materials/edit/${materialId}`)
   }
 
   const handleShare = (materialId: string, title: string) => {
@@ -256,6 +261,7 @@ export default function GenerateV2Materials() {
                     <TeachingMaterialCard
                       {...material}
                       onStartLesson={() => handleStartLesson(material.id, material.title)}
+                      onEdit={() => handleEdit(material.id, material.title)}
                       onShare={() => handleShare(material.id, material.title)}
                       onTogglePublic={() => handleTogglePublic(material.id)}
                       onDelete={() => handleDeleteClick(material.id, material.title)}

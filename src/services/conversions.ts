@@ -454,6 +454,51 @@ export async function fetchMaterialDetail(
   return response.json()
 }
 
+export interface UpdateMaterialRequest {
+  slide_data?: any
+  text_styles?: any
+  material_name?: string
+  content_name?: string
+}
+
+export interface UpdateMaterialResponse {
+  success: boolean
+  message: string
+  material_id: number
+  updated_at: string
+}
+
+/**
+ * 교재 데이터 수정
+ * PATCH /materials/{material_id}
+ */
+export async function updateMaterial(
+  materialId: number,
+  updates: UpdateMaterialRequest,
+  accessToken?: string
+): Promise<UpdateMaterialResponse> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
+  }
+
+  const response = await fetch(`${API_BASE_URL}/materials/${materialId}`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(updates),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Failed to update material: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
 export interface DeleteMaterialResponse {
   success: boolean
   message: string

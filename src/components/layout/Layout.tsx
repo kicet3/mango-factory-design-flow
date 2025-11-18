@@ -11,9 +11,10 @@ import { supabase } from "@/integrations/supabase/client"
 
 interface LayoutProps {
   children: React.ReactNode
+  hideSidebar?: boolean
 }
 
-export function Layout({ children }: LayoutProps) {
+export function Layout({ children, hideSidebar = false }: LayoutProps) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const [profilePhotoPath, setProfilePhotoPath] = useState<string>('')
@@ -57,11 +58,19 @@ export function Layout({ children }: LayoutProps) {
     navigate('/settings?tab=materials')
   }
 
+  if (hideSidebar) {
+    return (
+      <div className="min-h-screen w-full">
+        {children}
+      </div>
+    )
+  }
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <MangoSidebar />
-        
+
         <SidebarInset>
           {/* Top Navigation */}
           <header className="fixed top-0 left-0 right-0 z-[1] flex h-[5.33rem] items-center justify-between px-6 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
