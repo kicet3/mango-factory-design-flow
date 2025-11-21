@@ -33,27 +33,36 @@ serve(async (req) => {
     const baseUrl = backendBaseUrl.trim().replace(/\/+$/, '');
     const backendUrl = `${baseUrl}/generation/generation_request`;
     console.log('Requesting backend URL:', backendUrl);
-    const response = await fetch(backendUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${jwtToken}`,
-      },
-      body: JSON.stringify({
-        generation_attrs_id,
-        raw_course_material_id,
-        user_id
-      }),
-    });
+    
+    // Fire-and-forget pattern: 백엔드 호출을 기다리지 않음
+    EdgeRuntime.waitUntil(
+      fetch(backendUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwtToken}`,
+        },
+        body: JSON.stringify({
+          generation_attrs_id,
+          raw_course_material_id,
+          user_id
+        }),
+      }).then(response => {
+        if (!response.ok) {
+          console.error(`Backend request failed (${backendUrl}): ${response.status}`);
+        } else {
+          console.log('Backend request successful');
+        }
+      }).catch(error => {
+        console.error('Error in backend request:', error);
+      })
+    );
 
-    if (!response.ok) {
-      throw new Error(`Backend request failed (${backendUrl}): ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log('Backend response:', data);
-
-    return new Response(JSON.stringify({ success: true, data }), {
+    // 즉시 성공 응답 리턴
+    return new Response(JSON.stringify({ 
+      success: true,
+      message: '생성 요청이 전송되었습니다. 완료까지 시간이 소요될 수 있습니다.'
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

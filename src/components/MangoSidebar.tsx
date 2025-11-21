@@ -28,7 +28,6 @@ const menuItems = [
 
 const supportItems = [
   { title: "고객 지원", url: "/support", icon: HelpCircle },
-  { title: "요금제", url: "/billing", icon: User },
 ]
 
 export function MangoSidebar() {
@@ -96,27 +95,6 @@ export function MangoSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-
-      {state === "expanded" && (
-        <SidebarFooter className="p-4 border-t border-border/40">
-          <div className="mf-premium-upgrade-container">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-                <Sparkles className="h-3 w-3 text-white" />
-              </div>
-              <span className="text-sm font-medium text-white">프리미엄 업그레이드</span>
-            </div>
-            <p className="text-xs text-white/80 mb-3">
-              무제한 자료 생성과 고급 기능을 이용해보세요!
-            </p>
-            <NavLink to="/billing" className="block w-full">
-              <button className="mf-premium-upgrade-button">
-                업그레이드
-              </button>
-            </NavLink>
-          </div>
-        </SidebarFooter>
-      )}
     </Sidebar>
   )
 }

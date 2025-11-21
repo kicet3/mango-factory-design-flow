@@ -388,6 +388,11 @@ export interface MaterialDetail {
   generation_time: number | null
   gpt_model: string
   generation_metadata: any
+  css_variables?: Record<string, string>
+  font_settings?: {
+    fontFamily?: string
+    fontWeight?: string
+  }
   component: MaterialComponent | null
   generated_slides: Array<{
     data: any
@@ -459,6 +464,11 @@ export interface UpdateMaterialRequest {
   text_styles?: any
   material_name?: string
   content_name?: string
+  css_variables?: Record<string, string>
+  font_settings?: {
+    fontFamily?: string
+    fontWeight?: string
+  }
 }
 
 export interface UpdateMaterialResponse {
@@ -527,6 +537,52 @@ export async function deleteMaterial(
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}))
     throw new Error(errorData.detail || `Failed to delete material: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+export interface UpdateComponentRequest {
+  code?: string
+  imports?: string[]
+  styles?: any
+  layout_styles?: any
+}
+
+export interface UpdateComponentResponse {
+  success: boolean
+  message: string
+  component_id: number
+  updated_at: string
+}
+
+/**
+ * 컴포넌트 코드 수정
+ * PATCH /conversions/{conversion_id}/components/{component_id}
+ */
+export async function updateComponent(
+  conversionId: number,
+  componentId: number,
+  updates: UpdateComponentRequest,
+  accessToken?: string
+): Promise<UpdateComponentResponse> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
+  }
+
+  const response = await fetch(`${API_BASE_URL}/conversions/${conversionId}/components/${componentId}`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(updates),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Failed to update component: ${response.statusText}`)
   }
 
   return response.json()

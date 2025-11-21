@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,12 +11,16 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3000',
   'https://d982f9f4-4373-442d-b168-d0b5e763eaa6.lovableproject.com',
   'https://d982f9f4-4373-442d-b168-d0b5e763eaa6.sandbox.lovable.dev',
+  'https://mango-factory-deploy-web.lovable.app',
   'https://mangofactory.co.kr',
   'https://www.mangofactory.co.kr',
   'https://mango-factory-design-flow.vercel.app',
   'https://mango-factory-design-flow-git-main-twoweeks-projects.vercel.app',
   'https://mango-factory-design-flow-git-dev-twoweeks-projects.vercel.app',
-  'https://mango-factory-design-flow-git-staging-twoweeks-projects.vercel.app'
+  'https://mango-factory-design-flow-git-staging-twoweeks-projects.vercel.app',
+  'https://mango-factory-design-flow-git-main-edeal-projects.vercel.app',
+  'https://mango-factory-design-flow-git-dev-edeal-projects.vercel.app',
+  'https://mango-factory-design-flow-git-staging-edeal-projects.vercel.app'
 ];
 
 interface S3UploadResponse {

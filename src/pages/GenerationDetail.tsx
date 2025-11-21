@@ -126,6 +126,7 @@ const GenerationDetail: React.FC = () => {
   const [canShare, setCanShare] = useState(false);
   const [updatingShare, setUpdatingShare] = useState(false);
   const [downloadsCount, setDownloadsCount] = useState<number>(0);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -622,6 +623,23 @@ const GenerationDetail: React.FC = () => {
         </CardHeader>
       </Card>
 
+      {/* Edit Mode: Show WebsiteEditor */}
+      {isEditMode && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Edit2 className="h-5 w-5" />
+              자료 편집
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="h-[600px]">
+              <WebsiteEditor />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Sharing Settings */}
       <Card>
           <CardHeader>
@@ -672,6 +690,7 @@ const GenerationDetail: React.FC = () => {
       </Card>
 
       {/* Generation Settings */}
+      {!isEditMode && (
       <Card>
         <CardHeader>
           <CardTitle>생성 세팅</CardTitle>
@@ -747,9 +766,10 @@ const GenerationDetail: React.FC = () => {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Course Material Scope */}
-      {data.generation_attrs.course_material_scope && (
+      {!isEditMode && data.generation_attrs.course_material_scope && (
         <Card>
           <CardHeader>
             <CardTitle>생성 범위</CardTitle>
@@ -782,6 +802,7 @@ const GenerationDetail: React.FC = () => {
       )}
 
       {/* Video Recommendations */}
+      {!isEditMode && (
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -849,6 +870,7 @@ const GenerationDetail: React.FC = () => {
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   );
 };

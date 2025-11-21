@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -119,36 +119,36 @@ serve(async (req) => {
     
     console.log('Calling backend URL:', backendUrl);
     console.log('Backend payload:', {
-      generation_attrs_id: originalAttrs.generation_attrs_id, // Use existing generation_attrs_id
-      generation_response_id: newResponse.generation_response_id, // Use newly created response id
+      generation_attrs_id: originalAttrs.generation_attrs_id,
+      generation_response_id: newResponse.generation_response_id,
       raw_course_material_id: originalAttrs.course_material_id,
       user_id: user.id
     });
     
-    const backendResponse = await fetch(backendUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${jwtToken}`,
-      },
-      body: JSON.stringify({
-        generation_attrs_id: originalAttrs.generation_attrs_id, // Use existing generation_attrs_id
-        generation_response_id: newResponse.generation_response_id, // Use newly created response id
-        raw_course_material_id: originalAttrs.course_material_id,
-        user_id: user.id
-      }),
-    });
-
-    console.log('Backend response status:', backendResponse.status);
-    
-    if (!backendResponse.ok) {
-      const errorText = await backendResponse.text();
-      console.error('Backend error response:', errorText);
-      throw new Error(`Backend request failed: ${backendResponse.status} - ${errorText}`);
-    }
-
-    const backendData = await backendResponse.json();
-    console.log('Backend response:', backendData);
+    // Fire-and-forget pattern: 백엔드 호출을 기다리지 않음
+    EdgeRuntime.waitUntil(
+      fetch(backendUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwtToken}`,
+        },
+        body: JSON.stringify({
+          generation_attrs_id: originalAttrs.generation_attrs_id,
+          generation_response_id: newResponse.generation_response_id,
+          raw_course_material_id: originalAttrs.course_material_id,
+          user_id: user.id
+        }),
+      }).then(response => {
+        if (!response.ok) {
+          console.error(`Backend request failed: ${response.status}`);
+        } else {
+          console.log('Backend request successful');
+        }
+      }).catch(error => {
+        console.error('Error calling backend:', error);
+      })
+    );
 
     return new Response(JSON.stringify({
       success: true,

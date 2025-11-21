@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { formatKoreanTime } from "@/lib/utils";
+import { formatToKSTDate } from "@/lib/date-utils";
 
 interface ResultCardProps {
   id: string;
@@ -41,7 +41,12 @@ export function ResultCard({
   onDownload,
 }: ResultCardProps) {
   const formatDate = (dateString: string) => {
-    return formatKoreanTime(dateString, 'yyyy년 MM월 dd일');
+    const date = formatToKSTDate(dateString)
+    if (!date) return ''
+
+    // YYYY-MM-DD를 YYYY년 MM월 DD일로 변환
+    const [year, month, day] = date.split('-')
+    return `${year}년 ${month}월 ${day}일`
   };
 
   const getStatusColor = (status: string) => {

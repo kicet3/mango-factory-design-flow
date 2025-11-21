@@ -118,7 +118,7 @@ export default function GenerateV2Main() {
   const handleGenerationComplete = (responseId: number) => {
     setGenerationResponseId(responseId)
     setTimeout(() => {
-      navigate(`/generation/${responseId}`)
+      navigate('/gallery/generation_formats')
     }, 1000)
   }
 

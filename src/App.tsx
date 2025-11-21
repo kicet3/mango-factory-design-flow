@@ -25,7 +25,7 @@ import TeachingPlanViewer from "./pages/TeachingPlanViewer";
 import TeachingMaterialsExample from "./pages/TeachingMaterialsExample";
 import MaterialDetailPage from "./pages/MaterialDetailPage";
 import TeachingSession from "./pages/TeachingSession";
-import MaterialEditor from "./pages/MaterialEditor";
+import MaterialEditorNew from "./pages/MaterialEditorNew";
 
 const queryClient = new QueryClient();
 
@@ -137,7 +137,7 @@ const App = () => (
             <Route path="/gallery/material/:id" element={<MaterialDetailPage />} />
             <Route path="/gallery/materials/edit/:id" element={
               <ProtectedRoute>
-                <MaterialEditor />
+                <MaterialEditorNew />
               </ProtectedRoute>
             } />
             <Route path="/teaching-session/:conversionId" element={

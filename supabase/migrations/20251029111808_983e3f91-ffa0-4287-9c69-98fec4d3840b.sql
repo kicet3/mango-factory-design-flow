@@ -5,6 +5,7 @@
 ALTER TABLE user_material_interactions
 DROP CONSTRAINT IF EXISTS fk_umi_raw_format;
 
+
 -- Add constraint with CASCADE delete
 ALTER TABLE user_material_interactions
 ADD CONSTRAINT fk_umi_raw_format

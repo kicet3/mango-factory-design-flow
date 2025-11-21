@@ -180,7 +180,7 @@ export default function GenerateV2Upload() {
 
       // 자료 관리 페이지로 이동
       setTimeout(() => {
-        navigate('/generate-v2/materials')
+        navigate('/gallery/generation_formats')
       }, 1500)
 
     } catch (error) {

@@ -3,8 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Clock, Calendar, Play, FileCode, FileSpreadsheet } from "lucide-react";
 import { ConversionData } from "@/types/conversion";
-import { formatDistanceToNow } from "date-fns";
-import { ko } from "date-fns/locale";
+import { formatToKSTRelative } from "@/lib/date-utils";
 
 interface ConversionCardProps {
   conversion: ConversionData;
@@ -153,10 +152,7 @@ export function ConversionCard({ conversion, onPlay }: ConversionCardProps) {
           <div className="flex items-center gap-2 text-xs text-gray-500">
             <Calendar className="w-3.5 h-3.5" />
             <span>
-              {formatDistanceToNow(new Date(conversion.created_at), {
-                addSuffix: true,
-                locale: ko,
-              })}
+              {formatToKSTRelative(conversion.created_at)}
             </span>
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-500">

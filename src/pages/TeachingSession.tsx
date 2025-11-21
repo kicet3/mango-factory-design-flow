@@ -92,6 +92,7 @@ export default function TeachingSession() {
   const { conversionId } = useParams<{ conversionId: string }>()
   const navigate = useNavigate()
   const [conversion, setConversion] = useState<ConversionDetail | null>(null)
+  const [materialSlides, setMaterialSlides] = useState<any[]>([]) // Store generated_slides with data and styles
   const [loading, setLoading] = useState(true)
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
   const [viewMode, setViewMode] = useState<ViewMode>('slide')
@@ -109,6 +110,12 @@ export default function TeachingSession() {
         const accessToken = session?.access_token
 
         const material = await fetchMaterialDetail(parseInt(conversionId), accessToken)
+
+        // Store generated_slides with data and styles
+        if (material.generated_slides && material.generated_slides.length > 0) {
+          setMaterialSlides(material.generated_slides)
+          console.log("Loaded generated_slides with data and styles:", material.generated_slides)
+        }
 
         // MaterialDetail을 ConversionDetail 형식으로 변환
         const adaptedData = adaptMaterialToConversion(material)
@@ -132,9 +139,10 @@ export default function TeachingSession() {
 
   // 현재 슬라이드의 컴포넌트 코드를 iframe에 렌더링
   useEffect(() => {
-    if (!conversion || !conversion.slides[currentSlideIndex] || !iframeRef.current) return
+    if (!conversion || !conversion.slides[currentSlideIndex] || !materialSlides[currentSlideIndex] || !iframeRef.current) return
 
     const currentSlide = conversion.slides[currentSlideIndex]
+    const currentMaterialSlide = materialSlides[currentSlideIndex] // Get current slide's data and styles
     const iframe = iframeRef.current
     const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
     if (!iframeDoc) return
@@ -324,16 +332,26 @@ export default function TeachingSession() {
       componentName = constMatch[1]
     }
 
-    // 슬라이드 데이터를 props로 전달
-    // slide.data가 배열인 경우 첫 번째 요소를 전달, 아니면 그대로 전달
-    let slideData = currentSlide.data || {}
+    // 현재 슬라이드의 data와 styles를 props로 전달
+    let slideData = currentMaterialSlide.data || {}
+    let slideStyles = currentMaterialSlide.styles || {}
 
     // data가 배열이면 첫 번째 요소 사용
     if (Array.isArray(slideData) && slideData.length > 0) {
       slideData = slideData[0]
     }
 
+    // Replace 'fixed' with 'absolute' for container rendering
+    const elementStyles = { ...slideStyles }
+    Object.keys(elementStyles).forEach(key => {
+      if (elementStyles[key]?.className) {
+        elementStyles[key].className = elementStyles[key].className
+          .replace(/\bfixed\b/g, 'absolute')
+      }
+    })
+
     console.log('📊 Slide Data being passed as props:', slideData)
+    console.log('🎨 Element Styles being passed as props:', elementStyles)
 
     // HTML 생성
     const html = `
@@ -374,12 +392,13 @@ export default function TeachingSession() {
             (function() {
               try {
                 const data = ${JSON.stringify(slideData)};
+                const elementStyles = ${JSON.stringify(elementStyles)};
 
                 ${processedCode}
 
                 const rootElement = document.getElementById('root');
                 const root = ReactDOM.createRoot(rootElement);
-                root.render(React.createElement(${componentName}, { data: data }));
+                root.render(React.createElement(${componentName}, { data: data, elementStyles: elementStyles }));
               } catch (error) {
                 console.error('Rendering error:', error);
                 const errorDiv = document.getElementById('error-display');
@@ -395,7 +414,7 @@ export default function TeachingSession() {
     iframeDoc.open()
     iframeDoc.write(html)
     iframeDoc.close()
-  }, [conversion, currentSlideIndex, viewMode])
+  }, [conversion, currentSlideIndex, viewMode, materialSlides])
 
   const handlePreviousSlide = () => {
     setCurrentSlideIndex((prev) => Math.max(0, prev - 1))
