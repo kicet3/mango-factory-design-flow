@@ -587,3 +587,51 @@ export async function updateComponent(
 
   return response.json()
 }
+
+export interface UpdateLayoutStylesRequest {
+  generated_slides: Array<{
+    data: any
+    styles?: any
+    slide_number: number
+    layout_component: string
+    layout_description: string
+  }>
+}
+
+export interface UpdateLayoutStylesResponse {
+  success: boolean
+  message: string
+  material_id: number
+  updated_at: string
+}
+
+/**
+ * 교재 레이아웃 스타일 수정 (generated_slides 업데이트)
+ * PATCH /materials/{material_id}/layout-styles
+ */
+export async function updateMaterialLayoutStyles(
+  materialId: number,
+  request: UpdateLayoutStylesRequest,
+  accessToken?: string
+): Promise<UpdateLayoutStylesResponse> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
+  }
+
+  const response = await fetch(`${API_BASE_URL}/materials/${materialId}/layout-styles`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(request),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Failed to update layout styles: ${response.statusText}`)
+  }
+
+  return response.json()
+}

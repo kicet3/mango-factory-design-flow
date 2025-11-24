@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card } from "@/components/ui/card"
 import { ArrowLeft, Save, RotateCcw, Trash2, Plus, Copy } from "lucide-react"
 import { toast } from "sonner"
-import { fetchMaterialDetail, updateMaterial } from "@/services/conversions"
+import { fetchMaterialDetail, updateMaterialLayoutStyles } from "@/services/conversions"
 import { supabase } from "@/integrations/supabase/client"
 
 export default function MaterialEditorNew() {
@@ -24,6 +24,8 @@ export default function MaterialEditorNew() {
   const [componentData, setComponentData] = useState<any>(null)
   const [elementStyles, setElementStyles] = useState<any>({})
   const [selectedShape, setSelectedShape] = useState<string | null>(null)
+  const [generatedSlides, setGeneratedSlides] = useState<any[]>([]) // Store full generated_slides data
+  const [currentSlideIndex] = useState(0) // Currently editing slide index
 
   // Edit mode toggle
   const [editMode, setEditMode] = useState(true) // true = 편집 모드, false = 보기 모드
@@ -106,6 +108,10 @@ export default function MaterialEditorNew() {
       let slideElementStyles: any = null
 
       if (materialDetail.generated_slides && materialDetail.generated_slides.length > 0) {
+        // Store full generated_slides for later saving
+        setGeneratedSlides(materialDetail.generated_slides)
+        console.log("Stored generated_slides:", materialDetail.generated_slides)
+
         const firstSlide: any = materialDetail.generated_slides[0]
 
         // Use generated_slides.data directly
@@ -567,13 +573,39 @@ export default function MaterialEditorNew() {
       const { data: { session } } = await supabase.auth.getSession()
       const accessToken = session?.access_token
 
-      await updateMaterial(
+      // Update the current slide's styles in generatedSlides
+      const updatedGeneratedSlides = generatedSlides.map((slide, index) => {
+        if (index === currentSlideIndex) {
+          // Convert 'absolute' back to 'fixed' for storage (reverse the rendering change)
+          const storedStyles = { ...elementStyles }
+          Object.keys(storedStyles).forEach(key => {
+            if (storedStyles[key]?.className) {
+              storedStyles[key].className = storedStyles[key].className
+                .replace(/\babsolute\b/g, 'fixed')
+            }
+          })
+
+          return {
+            ...slide,
+            styles: storedStyles
+          }
+        }
+        return slide
+      })
+
+      console.log("Saving updated generated_slides:", updatedGeneratedSlides)
+
+      // Send to layout-styles endpoint
+      await updateMaterialLayoutStyles(
         parseInt(id),
         {
-          text_styles: elementStyles
+          generated_slides: updatedGeneratedSlides
         },
         accessToken
       )
+
+      // Update local state
+      setGeneratedSlides(updatedGeneratedSlides)
 
       toast.success("저장되었습니다!")
     } catch (error) {

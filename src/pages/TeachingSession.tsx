@@ -49,7 +49,7 @@ function adaptMaterialToConversion(material: MaterialDetail): ConversionDetail {
   if (material.conversion && material.slides) {
     return {
       id: material.material_id,
-      content_name: material.material_name,
+      content_name: material.conversion.content_name || material.material_name,
       conversion_type: material.conversion.conversion_type,
       components: material.conversion.components || [],
       slides: material.slides.map(slide => ({
@@ -77,7 +77,7 @@ function adaptMaterialToConversion(material: MaterialDetail): ConversionDetail {
 
   return {
     id: material.material_id,
-    content_name: material.material_name,
+    content_name: material.conversion?.content_name || material.material_name,
     conversion_type: material.conversion_type || 'basic',
     components: material.component ? [{
       id: material.component.component_id,
@@ -139,10 +139,19 @@ export default function TeachingSession() {
 
   // 현재 슬라이드의 컴포넌트 코드를 iframe에 렌더링
   useEffect(() => {
-    if (!conversion || !conversion.slides[currentSlideIndex] || !materialSlides[currentSlideIndex] || !iframeRef.current) return
+    // materialSlides (generated_slides)를 기준으로 체크 - slides가 비어있을 수 있음
+    if (!conversion || !materialSlides[currentSlideIndex] || !iframeRef.current) return
 
-    const currentSlide = conversion.slides[currentSlideIndex]
     const currentMaterialSlide = materialSlides[currentSlideIndex] // Get current slide's data and styles
+    // conversion.slides가 있으면 사용, 없으면 materialSlides에서 가져옴
+    const currentSlide = conversion.slides[currentSlideIndex] || {
+      id: currentSlideIndex + 1,
+      slide_number: currentMaterialSlide.slide_number,
+      slide_title: '',
+      slide_content: currentMaterialSlide.layout_description,
+      layout_component: currentMaterialSlide.layout_component,
+      data: currentMaterialSlide.data
+    }
     const iframe = iframeRef.current
     const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
     if (!iframeDoc) return
@@ -150,6 +159,7 @@ export default function TeachingSession() {
     // 디버깅: 현재 슬라이드와 컴포넌트 정보 출력
     console.log('=== Slide Matching Debug ===')
     console.log('Current Slide:', currentSlide)
+    console.log('Current Material Slide:', currentMaterialSlide)
     console.log('Layout Component Name:', currentSlide.layout_component)
     console.log('Available Components:', conversion.components.map(c => ({
       id: c.id,
@@ -353,7 +363,7 @@ export default function TeachingSession() {
     console.log('📊 Slide Data being passed as props:', slideData)
     console.log('🎨 Element Styles being passed as props:', elementStyles)
 
-    // HTML 생성
+    // HTML 생성 (MaterialEditorNew와 동일한 로직)
     const html = `
       <!DOCTYPE html>
       <html>
@@ -361,50 +371,108 @@ export default function TeachingSession() {
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <script src="https://cdn.tailwindcss.com"></script>
-          <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-          <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-          <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+          <script crossorigin="anonymous" src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+          <script crossorigin="anonymous" src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+          <script crossorigin="anonymous" src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
+              width: 1280px;
+              height: 720px;
               font-family: system-ui, -apple-system, sans-serif;
               overflow: ${viewMode === 'basic' ? 'auto' : 'hidden'};
               background: white;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            #root {
+              width: 100%;
+              height: 100%;
+            }
+            #error-display {
+              padding: 20px;
+              background: #fee;
+              color: #c00;
+              font-family: monospace;
+              white-space: pre-wrap;
+              border: 2px solid #c00;
+              margin: 20px;
             }
           </style>
         </head>
         <body>
           <div id="root"></div>
-          <div id="error-display" style="display: none; padding: 20px; background: #ffeeee; color: #cc0000; font-family: monospace; white-space: pre-wrap; border: 2px solid #cc0000; margin: 20px;"></div>
+          <div id="error-display" style="display: none;"></div>
 
           <script>
             window.onerror = function(msg, url, lineNo, columnNo, error) {
               const errorDiv = document.getElementById('error-display');
-              errorDiv.style.display = 'block';
-              errorDiv.textContent = 'Error: ' + msg + '\\nLine: ' + lineNo + '\\n\\n' + (error ? error.stack : '');
+              if (errorDiv) {
+                errorDiv.style.display = 'block';
+                errorDiv.textContent = 'Error: ' + msg + '\\nLine: ' + lineNo + '\\n\\n' + (error ? error.stack : '');
+              }
+              console.error('Global error:', msg, error);
               return false;
             };
           </script>
 
-          <script type="text/babel">
-            const { useState, useEffect } = React;
-
+          <script type="text/babel" data-type="module">
             (function() {
-              try {
-                const data = ${JSON.stringify(slideData)};
-                const elementStyles = ${JSON.stringify(elementStyles)};
-
-                ${processedCode}
-
-                const rootElement = document.getElementById('root');
-                const root = ReactDOM.createRoot(rootElement);
-                root.render(React.createElement(${componentName}, { data: data, elementStyles: elementStyles }));
-              } catch (error) {
-                console.error('Rendering error:', error);
-                const errorDiv = document.getElementById('error-display');
-                errorDiv.style.display = 'block';
-                errorDiv.textContent = 'Rendering Error:\\n\\n' + error.message + '\\n\\nStack:\\n' + error.stack;
+              // Wait for React to be available
+              function waitForReact() {
+                return new Promise((resolve) => {
+                  if (typeof React !== 'undefined' && typeof ReactDOM !== 'undefined') {
+                    resolve();
+                  } else {
+                    setTimeout(() => waitForReact().then(resolve), 100);
+                  }
+                });
               }
+
+              waitForReact().then(() => {
+                try {
+                  console.log('React available, executing component code...');
+                  const { useState, useEffect, useMemo } = React;
+
+                  ${processedCode}
+
+                  console.log('Component code executed');
+                  console.log('Component name:', '${componentName}');
+                  console.log('Component exists:', typeof ${componentName});
+
+                  // MaterialEditorNew와 동일한 방식으로 propsData 객체 생성
+                  const propsData = {
+                    data: ${JSON.stringify(slideData)},
+                    elementStyles: ${JSON.stringify(elementStyles)}
+                  };
+
+                  console.log('Props data prepared');
+
+                  const rootElement = document.getElementById('root');
+                  console.log('Root element:', rootElement);
+
+                  if (!rootElement) {
+                    throw new Error('Root element not found');
+                  }
+
+                  const root = ReactDOM.createRoot(rootElement);
+                  console.log('React root created');
+
+                  // propsData 객체를 통해 data와 elementStyles 전달
+                  root.render(React.createElement(${componentName}, propsData));
+                  console.log('Render complete!');
+                } catch (error) {
+                  console.error('Rendering error:', error);
+                  const errorDiv = document.getElementById('error-display');
+                  if (errorDiv) {
+                    errorDiv.style.display = 'block';
+                    errorDiv.textContent = 'Rendering Error:\\n\\n' + error.message + '\\n\\nStack:\\n' + error.stack;
+                  }
+                }
+              }).catch((error) => {
+                console.error('React wait error:', error);
+              });
             })();
           </script>
         </body>
@@ -421,8 +489,8 @@ export default function TeachingSession() {
   }
 
   const handleNextSlide = () => {
-    if (conversion) {
-      setCurrentSlideIndex((prev) => Math.min(conversion.slides.length - 1, prev + 1))
+    if (conversion && materialSlides.length > 0) {
+      setCurrentSlideIndex((prev) => Math.min(materialSlides.length - 1, prev + 1))
     }
   }
 
@@ -486,7 +554,7 @@ export default function TeachingSession() {
     )
   }
 
-  if (!conversion || conversion.slides.length === 0) {
+  if (!conversion || materialSlides.length === 0) {
     return (
       <div className="h-screen flex items-center justify-center bg-black">
         <div className="text-center space-y-4">
@@ -499,7 +567,7 @@ export default function TeachingSession() {
     )
   }
 
-  const totalSlides = conversion.slides.length
+  const totalSlides = materialSlides.length
 
   return (
     <div className="h-screen flex flex-col bg-black">
@@ -634,7 +702,7 @@ export default function TeachingSession() {
 
             {/* 하단 페이지 인디케이터 */}
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900/80 backdrop-blur">
-              {conversion.slides.map((_, index) => (
+              {materialSlides.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => setCurrentSlideIndex(index)}
@@ -685,12 +753,12 @@ export default function TeachingSession() {
                     <div className="p-4">
                       <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center justify-between">
                         <span>슬라이드 목록</span>
-                        <span className="text-xs text-gray-500">{conversion.slides.length}개</span>
+                        <span className="text-xs text-gray-500">{materialSlides.length}개</span>
                       </h3>
                       <div className="space-y-2">
-                        {conversion.slides.map((slide, index) => (
+                        {materialSlides.map((slide, index) => (
                           <button
-                            key={slide.id}
+                            key={slide.slide_number || index}
                             onClick={() => setCurrentSlideIndex(index)}
                             className={`w-full text-left px-3 py-2 rounded-lg transition-all ${
                               index === currentSlideIndex
@@ -700,7 +768,7 @@ export default function TeachingSession() {
                           >
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium truncate">
-                                {slide.slide_title || `슬라이드 ${index + 1}`}
+                                {slide.layout_component || `슬라이드 ${index + 1}`}
                               </span>
                               <span className={`text-xs ${index === currentSlideIndex ? 'opacity-100' : 'opacity-75'}`}>
                                 {index + 1}
