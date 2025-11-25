@@ -1,5 +1,5 @@
 // MaterialEditor - elementStyles 기반 스타일 편집 (iframe + Babel 버전)
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Layout } from "@/components/layout/Layout"
 import { Button } from "@/components/ui/button"
@@ -7,10 +7,22 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { ArrowLeft, Save, RotateCcw, Trash2 } from "lucide-react"
+import { ArrowLeft, Save, RotateCcw, Upload, Image as ImageIcon } from "lucide-react"
 import { toast } from "sonner"
-import { fetchMaterialDetail, updateMaterialLayoutStyles } from "@/services/conversions"
+import { fetchMaterialDetail, updateMaterialLayoutStyles, fetchLayoutImages, uploadLayoutImage, type LayoutImageItem } from "@/services/conversions"
 import { supabase } from "@/integrations/supabase/client"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
 
 export default function MaterialEditorNew() {
   const { id } = useParams<{ id: string }>()
@@ -38,8 +50,17 @@ export default function MaterialEditorNew() {
   const [borderColor, setBorderColor] = useState("#000000")
 
   // Background image upload state
-  const [bgImageMode, setBgImageMode] = useState<'url' | 'upload'>('url')
+  const [bgImageMode, setBgImageMode] = useState<'url' | 'library'>('url')
   const [pendingImageUploads, setPendingImageUploads] = useState<Map<string, File>>(new Map())
+
+  // Image library state
+  const [imageLibraryOpen, setImageLibraryOpen] = useState(false)
+  const [layoutImages, setLayoutImages] = useState<LayoutImageItem[]>([])
+  const [loadingImages, setLoadingImages] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [currentShapeForImage, setCurrentShapeForImage] = useState<string | null>(null)
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null)
+  const [imageNameInput, setImageNameInput] = useState('')
 
   useEffect(() => {
     loadMaterialData()
@@ -908,24 +929,97 @@ export default function MaterialEditorNew() {
     }
   }
 
-  const handleBackgroundImageUpload = (shapeName: string, file: File) => {
-    // Create object URL for preview
-    const objectUrl = URL.createObjectURL(file)
+  // Load images from library
+  const loadImageLibrary = useCallback(async () => {
+    setLoadingImages(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
 
-    // Store file for later upload
-    setPendingImageUploads(prev => {
-      const newMap = new Map(prev)
-      newMap.set(shapeName, file)
-      return newMap
-    })
+      const response = await fetchLayoutImages({ page: 1, page_size: 100 }, accessToken)
+      setLayoutImages(response.images)
+    } catch (error) {
+      console.error('Failed to load images:', error)
+      toast.error('이미지 목록을 불러오는데 실패했습니다')
+    } finally {
+      setLoadingImages(false)
+    }
+  }, [])
 
-    // Set temporary preview with object URL
-    updateShapeStyle(shapeName, "backgroundImage", `url('${objectUrl}')`)
-    updateShapeStyle(shapeName, "backgroundSize", "cover")
-    updateShapeStyle(shapeName, "backgroundPosition", "center")
-    updateShapeStyle(shapeName, "backgroundRepeat", "no-repeat")
+  // Load images when dialog opens
+  useEffect(() => {
+    if (imageLibraryOpen) {
+      loadImageLibrary()
+    }
+  }, [imageLibraryOpen, loadImageLibrary])
 
-    toast.info("이미지가 선택되었습니다. 저장 버튼을 눌러 업로드하세요.")
+  // Open image library for a shape
+  const openImageLibraryForShape = (shapeName: string) => {
+    setCurrentShapeForImage(shapeName)
+    setImageLibraryOpen(true)
+    // Images will be loaded by useEffect when dialog opens
+  }
+
+  // Handle image selection from library
+  const handleImageSelect = (image: LayoutImageItem) => {
+    if (currentShapeForImage) {
+      updateShapeStyle(currentShapeForImage, "backgroundImage", `url('${image.image_url}')`)
+      updateShapeStyle(currentShapeForImage, "backgroundSize", "cover")
+      updateShapeStyle(currentShapeForImage, "backgroundPosition", "center")
+      updateShapeStyle(currentShapeForImage, "backgroundRepeat", "no-repeat")
+      toast.success(`"${image.image_name}" 이미지가 적용되었습니다`)
+      setImageLibraryOpen(false)
+      setCurrentShapeForImage(null)
+    }
+  }
+
+  // Handle file selection
+  const handleFileSelect = (file: File) => {
+    setSelectedImageFile(file)
+    // Set default name as filename without extension
+    const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '')
+    setImageNameInput(nameWithoutExt)
+  }
+
+  // Handle new image upload to library
+  const handleLibraryImageUpload = async () => {
+    if (!selectedImageFile) {
+      toast.error('파일을 선택해주세요')
+      return
+    }
+
+    if (!imageNameInput.trim()) {
+      toast.error('이미지 이름을 입력해주세요')
+      return
+    }
+
+    setUploadingImage(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
+
+      await uploadLayoutImage(selectedImageFile, imageNameInput.trim(), accessToken)
+
+      toast.success('이미지가 업로드되었습니다')
+
+      // Reset form
+      setSelectedImageFile(null)
+      setImageNameInput('')
+
+      // Reload image library
+      await loadImageLibrary()
+    } catch (error) {
+      console.error('Failed to upload image:', error)
+      toast.error('이미지 업로드에 실패했습니다')
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  // Cancel upload
+  const handleCancelUpload = () => {
+    setSelectedImageFile(null)
+    setImageNameInput('')
   }
 
   const selectedShapeData = selectedShape ? elementStyles[selectedShape] : null
@@ -1053,44 +1147,79 @@ export default function MaterialEditorNew() {
                   {/* Data Content */}
                   {(() => {
                     const shapeData = getShapeData(selectedShape)
-                    console.log('Shape data for', selectedShape, ':', shapeData)
-                    console.log('Component data:', componentData)
+                    console.log('🔍 Shape data for', selectedShape, ':', shapeData)
+                    console.log('📦 Component data:', componentData)
 
                     // Always show content editor if shape is selected
                     return (
                       <div className="space-y-2">
-                        <Label className="text-xs font-semibold">내용 편집</Label>
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-semibold">내용 편집</Label>
+                          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+                            {selectedShape}
+                          </span>
+                        </div>
 
                         {/* Text/Content field */}
-                        {shapeData && (shapeData.text !== undefined || shapeData.content !== undefined) ? (
-                          <div>
-                            <Label className="text-xs text-gray-500 mb-1">텍스트</Label>
-                            <Textarea
-                              value={String(shapeData.text || shapeData.content || "")}
-                              onChange={(e) => {
-                                const key = shapeData.text !== undefined ? 'text' : 'content'
-                                updateShapeData(selectedShape, key, e.target.value)
-                              }}
-                              placeholder="텍스트 입력"
-                              className="min-h-[80px] text-xs"
-                            />
-                          </div>
+                        {shapeData ? (
+                          <>
+                            {/* Text or Content field */}
+                            {(shapeData.text !== undefined || shapeData.content !== undefined) && (
+                              <div>
+                                <Label className="text-xs text-gray-500 mb-1">텍스트</Label>
+                                <Textarea
+                                  value={String(shapeData.text || shapeData.content || "")}
+                                  onChange={(e) => {
+                                    const key = shapeData.text !== undefined ? 'text' : 'content'
+                                    console.log(`✏️ Updating ${selectedShape}.${key}:`, e.target.value)
+                                    updateShapeData(selectedShape, key, e.target.value)
+                                  }}
+                                  placeholder="텍스트 입력"
+                                  className="min-h-[80px] text-xs"
+                                />
+                              </div>
+                            )}
+
+                            {/* Show other editable fields */}
+                            {Object.entries(shapeData).map(([key, value]) => {
+                              // Skip text, content, key, name (already handled or system fields)
+                              if (key === 'text' || key === 'content' || key === 'key' || key === 'name') return null
+
+                              // Only show string or number fields for now
+                              if (typeof value !== 'string' && typeof value !== 'number') return null
+
+                              return (
+                                <div key={key}>
+                                  <Label className="text-xs text-gray-500 mb-1">{key}</Label>
+                                  <Input
+                                    value={String(value || "")}
+                                    onChange={(e) => {
+                                      console.log(`✏️ Updating ${selectedShape}.${key}:`, e.target.value)
+                                      updateShapeData(selectedShape, key, e.target.value)
+                                    }}
+                                    placeholder={`${key} 입력`}
+                                    className="h-8 text-xs"
+                                  />
+                                </div>
+                              )
+                            })}
+
+                            {/* Show data structure for debugging */}
+                            <details className="text-xs">
+                              <summary className="cursor-pointer text-gray-500 hover:text-gray-700 py-1">
+                                📊 데이터 구조 보기 (generated_slides.data)
+                              </summary>
+                              <pre className="mt-2 p-2 bg-gray-50 rounded border border-gray-200 overflow-auto max-h-32 text-[10px]">
+                                {JSON.stringify(shapeData, null, 2)}
+                              </pre>
+                            </details>
+                          </>
                         ) : (
                           <div className="text-xs text-gray-400 p-3 bg-gray-50 rounded border border-gray-200">
-                            이 요소에는 편집 가능한 텍스트 데이터가 없습니다.
+                            ⚠️ 이 요소는 generated_slides.data에 매칭되는 데이터가 없습니다.
+                            <br />
+                            <span className="text-[10px] mt-1 block">data-key: {selectedShape}</span>
                           </div>
-                        )}
-
-                        {/* Show all data properties for debugging */}
-                        {shapeData && Object.keys(shapeData).length > 0 && (
-                          <details className="text-xs">
-                            <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
-                              데이터 구조 보기
-                            </summary>
-                            <pre className="mt-2 p-2 bg-gray-50 rounded border border-gray-200 overflow-auto max-h-32">
-                              {JSON.stringify(shapeData, null, 2)}
-                            </pre>
-                          </details>
                         )}
                       </div>
                     )
@@ -1139,10 +1268,10 @@ export default function MaterialEditorNew() {
                     <Label className="text-xs">배경 이미지</Label>
 
                     {/* Mode Toggle */}
-                    <div className="flex gap-2 mb-2">
+                    <div className="grid grid-cols-2 gap-2 mb-2">
                       <button
                         onClick={() => setBgImageMode('url')}
-                        className={`flex-1 px-3 py-1.5 text-xs rounded-md transition-colors ${
+                        className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
                           bgImageMode === 'url'
                             ? 'bg-blue-500 text-white'
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -1151,14 +1280,14 @@ export default function MaterialEditorNew() {
                         URL 입력
                       </button>
                       <button
-                        onClick={() => setBgImageMode('upload')}
-                        className={`flex-1 px-3 py-1.5 text-xs rounded-md transition-colors ${
-                          bgImageMode === 'upload'
+                        onClick={() => setBgImageMode('library')}
+                        className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                          bgImageMode === 'library'
                             ? 'bg-blue-500 text-white'
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                         }`}
                       >
-                        파일 업로드
+                        라이브러리
                       </button>
                     </div>
 
@@ -1188,31 +1317,23 @@ export default function MaterialEditorNew() {
                       />
                     )}
 
-                    {/* File Upload Mode */}
-                    {bgImageMode === 'upload' && (
+                    {/* Image Library Mode */}
+                    {bgImageMode === 'library' && (
                       <div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0]
-                            if (file) {
-                              handleBackgroundImageUpload(selectedShape, file)
-                            }
-                          }}
-                          className="w-full h-8 text-xs border rounded-md file:mr-2 file:px-3 file:py-1 file:rounded-l-md file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
-                        />
-                        {pendingImageUploads.has(selectedShape) && (
-                          <p className="text-xs text-orange-600 mt-1">
-                            ⏳ 저장 대기 중 - 저장 버튼을 눌러주세요
-                          </p>
-                        )}
+                        <Button
+                          onClick={() => openImageLibraryForShape(selectedShape)}
+                          className="w-full h-9 gap-2"
+                          variant="outline"
+                        >
+                          <ImageIcon className="w-4 h-4" />
+                          이미지 라이브러리 열기
+                        </Button>
                         {selectedShapeData.style?.backgroundImage && (
-                          <div className="mt-1 p-2 bg-gray-50 rounded border border-gray-200">
-                            <p className="text-xs text-gray-600 mb-1">미리보기:</p>
+                          <div className="mt-2 p-2 bg-gray-50 rounded border border-gray-200">
+                            <p className="text-xs text-gray-600 mb-1">현재 이미지:</p>
                             <img
                               src={String(selectedShapeData.style.backgroundImage).replace(/^url\(['"]?|['"]?\)$/g, '')}
-                              alt="Background preview"
+                              alt="Current background"
                               className="w-full h-20 object-cover rounded"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none'
@@ -1381,6 +1502,177 @@ export default function MaterialEditorNew() {
           )}
         </div>
       </div>
+
+      {/* Image Library Dialog */}
+      <Dialog open={imageLibraryOpen} onOpenChange={(open) => {
+        setImageLibraryOpen(open)
+        if (!open) {
+          // Reset upload form when dialog closes
+          setSelectedImageFile(null)
+          setImageNameInput('')
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>이미지 라이브러리</DialogTitle>
+          </DialogHeader>
+
+          <Tabs defaultValue="list" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="list">이미지 목록</TabsTrigger>
+              <TabsTrigger value="upload">업로드</TabsTrigger>
+            </TabsList>
+
+            {/* Image List Tab */}
+            <TabsContent value="list" className="flex-1 overflow-hidden mt-4">
+              <ScrollArea className="h-[500px] pr-4">
+                {loadingImages ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center space-y-2">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                      <p className="text-sm text-muted-foreground">이미지 로딩 중...</p>
+                    </div>
+                  </div>
+                ) : layoutImages.length === 0 ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center space-y-2">
+                      <ImageIcon className="w-12 h-12 text-muted-foreground mx-auto opacity-50" />
+                      <p className="text-sm text-muted-foreground">등록된 이미지가 없습니다</p>
+                      <p className="text-xs text-muted-foreground">"업로드" 탭에서 이미지를 추가하세요</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-4 p-2">
+                    {layoutImages.map((image) => (
+                      <div
+                        key={image.id}
+                        className="group relative border rounded-lg overflow-hidden cursor-pointer hover:border-blue-500 transition-all hover:shadow-lg"
+                        onClick={() => handleImageSelect(image)}
+                      >
+                        <div className="aspect-video bg-gray-100 flex items-center justify-center overflow-hidden">
+                          <img
+                            src={image.image_url}
+                            alt={image.image_name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            onError={(e) => {
+                              // Prevent infinite loop by setting a flag
+                              const target = e.currentTarget
+                              if (!target.dataset.errorHandled) {
+                                target.dataset.errorHandled = 'true'
+                                // Use a transparent 1x1 pixel as placeholder
+                                target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="12"%3ENo Image%3C/text%3E%3C/svg%3E'
+                              }
+                            }}
+                          />
+                        </div>
+                        <div className="p-2 bg-white">
+                          <p className="text-xs font-medium text-gray-700 truncate" title={image.image_name}>
+                            {image.image_name}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {new Date(image.created_at).toLocaleDateString('ko-KR')}
+                          </p>
+                        </div>
+                        <div className="absolute inset-0 bg-blue-500 bg-opacity-0 group-hover:bg-opacity-10 transition-all flex items-center justify-center">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-blue-500 text-white px-3 py-1 rounded text-sm">
+                            선택
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </TabsContent>
+
+            {/* Upload Tab */}
+            <TabsContent value="upload" className="flex-1 overflow-hidden mt-4">
+              <div className="h-[500px] flex items-center justify-center">
+                {!selectedImageFile ? (
+                  <div className="w-full max-w-md">
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 bg-gray-50">
+                      <div className="flex flex-col items-center gap-4">
+                        <Upload className="w-12 h-12 text-gray-400" />
+                        <div className="text-center">
+                          <p className="text-base font-medium text-gray-700 mb-1">이미지 업로드</p>
+                          <p className="text-sm text-gray-500">클릭하여 파일을 선택하세요</p>
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          id="library-upload"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              handleFileSelect(file)
+                              e.target.value = '' // Reset input
+                            }
+                          }}
+                        />
+                        <Button
+                          onClick={() => document.getElementById('library-upload')?.click()}
+                          className="gap-2"
+                        >
+                          <Upload className="w-4 h-4" />
+                          파일 선택
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full max-w-md">
+                    <div className="border border-gray-300 rounded-lg p-6 bg-white space-y-4">
+                      <div className="text-center">
+                        <div className="w-48 h-48 bg-gray-100 rounded-lg overflow-hidden mx-auto mb-4">
+                          <img
+                            src={URL.createObjectURL(selectedImageFile)}
+                            alt="Preview"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="text-sm text-gray-500 space-y-1">
+                          <div>파일명: {selectedImageFile.name}</div>
+                          <div>크기: {(selectedImageFile.size / 1024).toFixed(2)} KB</div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">이미지 이름 *</Label>
+                        <Input
+                          value={imageNameInput}
+                          onChange={(e) => setImageNameInput(e.target.value)}
+                          placeholder="이미지 이름을 입력하세요"
+                          autoFocus
+                        />
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={handleCancelUpload}
+                          disabled={uploadingImage}
+                          className="flex-1"
+                        >
+                          취소
+                        </Button>
+                        <Button
+                          onClick={handleLibraryImageUpload}
+                          disabled={uploadingImage || !imageNameInput.trim()}
+                          className="flex-1 gap-2"
+                        >
+                          <Upload className="w-4 h-4" />
+                          {uploadingImage ? '업로드 중...' : '업로드'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
     </Layout>
   )
 }

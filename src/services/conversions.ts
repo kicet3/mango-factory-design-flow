@@ -635,3 +635,128 @@ export async function updateMaterialLayoutStyles(
 
   return response.json()
 }
+
+// Layout Image types and functions
+export interface LayoutImageItem {
+  id: number
+  image_name: string
+  image_url: string
+  file_key: string | null
+  file_size: number | null
+  created_at: string
+}
+
+export interface LayoutImagesListResponse {
+  total: number
+  images: LayoutImageItem[]
+  page: number
+  page_size: number
+}
+
+/**
+ * 레이아웃 이미지 목록 조회
+ * GET /materials/layout-styles/images
+ */
+export async function fetchLayoutImages(
+  params?: { page?: number; page_size?: number },
+  accessToken?: string
+): Promise<LayoutImagesListResponse> {
+  const { page = 1, page_size = 100 } = params || {}
+
+  const queryParams = new URLSearchParams({
+    page: page.toString(),
+    page_size: page_size.toString()
+  })
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
+  }
+
+  const response = await fetch(`${API_BASE_URL}/materials/layout-styles/images?${queryParams.toString()}`, {
+    method: 'GET',
+    headers,
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Failed to fetch layout images: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+export interface UploadLayoutImageResponse {
+  success: boolean
+  message: string
+  id: number
+  image_name: string
+  image_url: string
+}
+
+/**
+ * 레이아웃 이미지 업로드
+ * POST /materials/layout-styles/image/upload
+ */
+export async function uploadLayoutImage(
+  file: File,
+  imageName?: string,
+  accessToken?: string
+): Promise<UploadLayoutImageResponse> {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  // 이미지 이름이 제공되면 추가
+  if (imageName) {
+    formData.append('image_name', imageName)
+  }
+
+  const headers: Record<string, string> = {}
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
+  }
+
+  const response = await fetch(`${API_BASE_URL}/materials/layout-styles/image/upload`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Failed to upload layout image: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * 레이아웃 이미지 삭제
+ * DELETE /materials/layout-styles/images/{image_id}
+ */
+export async function deleteLayoutImage(
+  imageId: number,
+  accessToken?: string
+): Promise<{ success: boolean; message: string }> {
+  const headers: Record<string, string> = {}
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
+  }
+
+  const response = await fetch(`${API_BASE_URL}/materials/layout-styles/images/${imageId}`, {
+    method: 'DELETE',
+    headers,
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Failed to delete layout image: ${response.statusText}`)
+  }
+
+  return response.json()
+}

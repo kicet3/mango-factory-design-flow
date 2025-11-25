@@ -12,9 +12,10 @@ import { supabase } from "@/integrations/supabase/client"
 interface LayoutProps {
   children: React.ReactNode
   hideSidebar?: boolean
+  hideHeader?: boolean
 }
 
-export function Layout({ children, hideSidebar = false }: LayoutProps) {
+export function Layout({ children, hideSidebar = false, hideHeader = false }: LayoutProps) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const [profilePhotoPath, setProfilePhotoPath] = useState<string>('')
@@ -71,6 +72,7 @@ export function Layout({ children, hideSidebar = false }: LayoutProps) {
       <MangoSidebar />
 
       {/* Top Navigation - offset for sidebar */}
+      {!hideHeader && (
       <header className="fixed top-0 left-16 right-0 z-30 flex h-[5.33rem] items-center justify-between px-6 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex items-center gap-4">
           {/* Empty space where trigger was */}
@@ -129,9 +131,10 @@ export function Layout({ children, hideSidebar = false }: LayoutProps) {
           )}
         </div>
       </header>
+      )}
 
       {/* Main Content - offset for sidebar and header */}
-      <main className="ml-16 pt-[5.33rem]">
+      <main className={`ml-16 ${hideHeader ? '' : 'pt-[5.33rem]'}`}>
         {children}
       </main>
     </div>

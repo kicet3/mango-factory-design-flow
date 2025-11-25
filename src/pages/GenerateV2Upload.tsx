@@ -31,7 +31,7 @@ interface UploadedFile {
 
 export default function GenerateV2Upload() {
   const navigate = useNavigate()
-  const [selectedCard, setSelectedCard] = useState<CardType>(null)
+  const [selectedCard, setSelectedCard] = useState<CardType>('lesson-card')
   const [lessonIntroText, setLessonIntroText] = useState<string>('')
 
   // 수업 카드 상태
@@ -194,12 +194,12 @@ export default function GenerateV2Upload() {
   }
 
   return (
-    <Layout>
-      <div className="min-h-screen bg-gradient-to-br from-primary-light/10 via-background to-secondary/20">
-        <div className="container mx-auto max-w-7xl px-6 py-8 scale-90 origin-top">
-          {/* 헤더 */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between">
+    <Layout hideHeader>
+      <div className="h-screen bg-gradient-to-br from-primary-light/10 via-background to-secondary/20 flex flex-col">
+        {/* 고정 헤더 */}
+        <div className="flex-shrink-0 bg-gradient-to-br from-primary-light/10 via-background to-secondary/20 border-b border-border/50 px-6 py-6">
+          <div className="container mx-auto max-w-7xl scale-90 origin-top">
+            <div className="flex items-center justify-between max-w-5xl mx-auto">
               <div>
                 <h1 className="text-4xl font-bold mb-2">교안 생성 v2</h1>
                 <p className="text-lg text-muted-foreground">
@@ -218,8 +218,12 @@ export default function GenerateV2Upload() {
               )}
             </div>
           </div>
+        </div>
 
-          <div className="max-w-5xl mx-auto space-y-4">
+        {/* 스크롤 가능한 카드 영역 */}
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div className="container mx-auto max-w-7xl scale-90 origin-top">
+            <div className="max-w-5xl mx-auto space-y-4">
             {/* 수업 카드 */}
             <Card
               className={`transition-all hover:shadow-lg ${selectedCard === 'lesson-card' ? 'ring-2 ring-primary' : ''}`}
@@ -341,7 +345,7 @@ export default function GenerateV2Upload() {
                           <Label className="text-base font-semibold">기를 수 있는 역량</Label>
                         </div>
                         <div className="flex gap-3">
-                          {['협동성', '창의적 사고', '규칙 준수'].map((comp) => (
+                          {['자기관리', '지식정보처리', '창의적 사고', '심미적 감성', '협력적 소통', '공동체 역량'].map((comp) => (
                             <Button
                               key={comp}
                               variant={competency.includes(comp) ? 'default' : 'outline'}
@@ -498,7 +502,7 @@ export default function GenerateV2Upload() {
                           <div className="flex items-start justify-between gap-4">
                             {/* 왼쪽: 수업 종류 선택 */}
                             <div className="flex-shrink-0 w-64">
-                              <Label className="text-base font-semibold mb-3 block">수업 종류</Label>
+                              <Label className="text-base font-semibold mb-3 block">종류</Label>
                               <Select
                                 value={uploadedFile.type}
                                 onValueChange={(value) => handleFileTypeChange(uploadedFile.id, value as MaterialFileType)}
@@ -622,7 +626,7 @@ export default function GenerateV2Upload() {
                       <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                         <div className="flex items-start gap-2">
                           <span className="text-lg">💡</span>
-                          <p className="text-sm text-amber-900">
+                          <p className="text-lg text-amber-900">
                             망고 팩토리에서 사용 가능한 형태로 변환됩니다.
                           </p>
                         </div>
@@ -632,6 +636,7 @@ export default function GenerateV2Upload() {
                 </CardContent>
               )}
             </Card>
+            </div>
           </div>
         </div>
       </div>
