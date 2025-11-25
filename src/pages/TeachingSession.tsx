@@ -739,45 +739,51 @@ export default function TeachingSession() {
               </div>
             </div>
 
-            {/* 좌측 슬라이드 선택 패널 */}
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 z-20">
-              <div className="group">
-                {/* 토글 버튼 */}
-                <button className="bg-white/90 hover:bg-white p-2 rounded-r-lg shadow-lg transition-all group-hover:opacity-100 opacity-50">
-                  <ChevronRight className="w-6 h-6" />
-                </button>
+            {/* 좌측 슬라이드 선택 패널 - 평소 아이콘만, hover 시 확장 */}
+            <div className="absolute left-0 top-0 bottom-0 z-20 group">
+              {/* 사이드바 컨테이너 - hover 시 너비 확장 */}
+              <div className="h-full bg-white/95 backdrop-blur-md shadow-2xl transition-all duration-300 ease-in-out w-16 group-hover:w-72 overflow-hidden">
+                {/* 헤더 */}
+                <div className="p-3 border-b border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <List className="w-5 h-5 text-gray-600 flex-shrink-0" />
+                    <span className="text-sm font-semibold text-gray-700 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      슬라이드 목록
+                    </span>
+                    <span className="ml-auto text-xs text-gray-500 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      {materialSlides.length}개
+                    </span>
+                  </div>
+                </div>
 
-                {/* 슬라이드 목록 패널 (호버시 표시) */}
-                <div className="absolute left-0 top-0 -translate-y-1/2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-300">
-                  <div className="bg-white/95 backdrop-blur-md rounded-r-lg shadow-2xl w-80 max-h-[600px] overflow-y-auto">
-                    <div className="p-4">
-                      <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center justify-between">
-                        <span>슬라이드 목록</span>
-                        <span className="text-xs text-gray-500">{materialSlides.length}개</span>
-                      </h3>
-                      <div className="space-y-2">
-                        {materialSlides.map((slide, index) => (
-                          <button
-                            key={slide.slide_number || index}
-                            onClick={() => setCurrentSlideIndex(index)}
-                            className={`w-full text-left px-3 py-2 rounded-lg transition-all ${
-                              index === currentSlideIndex
-                                ? 'bg-primary text-white shadow-md scale-105'
-                                : 'bg-gray-50 hover:bg-gray-100 text-gray-700 hover:scale-102'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium truncate">
-                                {slide.layout_component || `슬라이드 ${index + 1}`}
-                              </span>
-                              <span className={`text-xs ${index === currentSlideIndex ? 'opacity-100' : 'opacity-75'}`}>
-                                {index + 1}
-                              </span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                {/* 슬라이드 목록 */}
+                <div className="overflow-y-auto h-[calc(100%-50px)] p-2">
+                  <div className="space-y-1">
+                    {materialSlides.map((slide, index) => (
+                      <button
+                        key={slide.slide_number || index}
+                        onClick={() => setCurrentSlideIndex(index)}
+                        className={`w-full text-left px-2 py-2 rounded-lg transition-all flex items-center gap-2 ${
+                          index === currentSlideIndex
+                            ? 'bg-primary text-white shadow-md'
+                            : 'bg-gray-50 hover:bg-gray-100 text-gray-700'
+                        }`}
+                        title={slide.layout_component || `슬라이드 ${index + 1}`}
+                      >
+                        {/* 슬라이드 번호 아이콘 - 항상 표시 */}
+                        <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                          index === currentSlideIndex
+                            ? 'bg-white/20'
+                            : 'bg-gray-200'
+                        }`}>
+                          {index + 1}
+                        </span>
+                        {/* 슬라이드 제목 - hover 시에만 표시 */}
+                        <span className="text-sm font-medium truncate whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          {slide.layout_component || `슬라이드 ${index + 1}`}
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>

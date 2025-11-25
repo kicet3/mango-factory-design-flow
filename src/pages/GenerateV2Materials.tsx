@@ -124,7 +124,14 @@ export default function GenerateV2Materials() {
 
   const handleStartLesson = (materialId: string, title: string) => {
     console.log("수업 시작:", title, "ID:", materialId)
-    navigate(`/teaching-session/${materialId}`)
+    // 완전히 새로운 창에서 수업하기 페이지 열기
+    const width = window.screen.width
+    const height = window.screen.height
+    window.open(
+      `/teaching-session/${materialId}`,
+      '_blank',
+      `width=${width},height=${height},left=0,top=0,menubar=no,toolbar=no,location=no,status=no`
+    )
   }
 
   const handleEdit = (materialId: string, title: string) => {
@@ -225,7 +232,7 @@ export default function GenerateV2Materials() {
             </p>
             <div className="flex justify-center">
               <Button
-                onClick={() => setDialogOpen(true)}
+                onClick={() => navigate('/generate-v2/generate')}
                 size="lg"
                 className="gap-2"
               >
@@ -247,15 +254,12 @@ export default function GenerateV2Materials() {
             <div className="flex items-center justify-center min-h-[400px]">
               <div className="text-center space-y-4">
                 <p className="text-xl text-muted-foreground">생성된 수업 자료가 없습니다</p>
-                <Button onClick={() => navigate('/generate-v2/upload')}>
-                  새 자료 생성하기
-                </Button>
               </div>
             </div>
           ) : (
             <>
-              {/* 교안 그리드 (반응형: 1~4열) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+              {/* 교안 그리드 (반응형: 1~3열) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {materials.map((material) => (
                   <div key={material.id} className="transform transition-transform hover:scale-[1.02]">
                     <TeachingMaterialCard

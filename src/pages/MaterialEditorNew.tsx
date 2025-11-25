@@ -7,8 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Card } from "@/components/ui/card"
-import { ArrowLeft, Save, RotateCcw, Trash2, Plus, Copy } from "lucide-react"
+import { ArrowLeft, Save, RotateCcw, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { fetchMaterialDetail, updateMaterialLayoutStyles } from "@/services/conversions"
 import { supabase } from "@/integrations/supabase/client"
@@ -33,40 +32,96 @@ export default function MaterialEditorNew() {
   // Iframe reference
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
-  // New style property input
-  const [newStyleKey, setNewStyleKey] = useState("")
-  const [newStyleValue, setNewStyleValue] = useState("")
+  // Border state
+  const [borderStyle, setBorderStyle] = useState("solid")
+  const [borderWidth, setBorderWidth] = useState("")
+  const [borderColor, setBorderColor] = useState("#000000")
+
+  // Background image upload state
+  const [bgImageMode, setBgImageMode] = useState<'url' | 'upload'>('url')
+  const [pendingImageUploads, setPendingImageUploads] = useState<Map<string, File>>(new Map())
 
   useEffect(() => {
     loadMaterialData()
   }, [id])
 
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      // Revoke all object URLs to prevent memory leaks
+      Object.values(elementStyles).forEach((shapeData: any) => {
+        const bgImage = shapeData?.style?.backgroundImage
+        if (bgImage && bgImage.startsWith('url("blob:')) {
+          const url = bgImage.replace(/^url\(['"]?|['"]?\)$/g, '')
+          URL.revokeObjectURL(url)
+        }
+      })
+    }
+  }, [])
+
   // Send editMode to iframe when it changes
   useEffect(() => {
+    console.log('🔄 EditMode changed to:', editMode)
+
+    let confirmed = false
+    const timeouts: NodeJS.Timeout[] = []
+
     const sendEditMode = () => {
+      if (confirmed) return // Stop if already confirmed
+
       if (iframeRef.current && iframeRef.current.contentWindow) {
-        console.log('📤 Sending editMode to iframe:', editMode)
         try {
           iframeRef.current.contentWindow.postMessage({
             type: 'setEditMode',
             editMode: editMode
           }, '*')
-          console.log('✅ EditMode message sent successfully')
+          console.log('📤 EditMode message sent:', editMode)
+
+          // If switching to edit mode, refresh click handlers after a delay
+          if (editMode) {
+            setTimeout(() => {
+              if (iframeRef.current && iframeRef.current.contentWindow) {
+                const iframeWindow = iframeRef.current.contentWindow as any
+                if (typeof iframeWindow.refreshClickHandlers === 'function') {
+                  console.log('🔄 Refreshing click handlers')
+                  iframeWindow.refreshClickHandlers()
+                }
+              }
+            }, 200)
+          }
         } catch (error) {
           console.error('❌ Failed to send editMode:', error)
         }
-      } else {
-        console.warn('⚠️ Iframe not ready, retrying...')
-        // Retry after a short delay
-        setTimeout(sendEditMode, 100)
       }
     }
 
+    // Listen for confirmation from iframe
+    const handleConfirmation = (event: MessageEvent) => {
+      if (event.data.type === 'editModeConfirmed' && event.data.editMode === editMode) {
+        console.log('✅ EditMode confirmed by iframe')
+        confirmed = true
+        // Clear all pending timeouts
+        timeouts.forEach(timeout => clearTimeout(timeout))
+      }
+    }
+    window.addEventListener('message', handleConfirmation)
+
+    // Send immediately and retry with exponential backoff
     sendEditMode()
+    timeouts.push(setTimeout(sendEditMode, 100))
+    timeouts.push(setTimeout(sendEditMode, 300))
+    timeouts.push(setTimeout(sendEditMode, 600))
+    timeouts.push(setTimeout(sendEditMode, 1000))
 
     // Clear selection when switching to view mode
     if (!editMode) {
       setSelectedShape(null)
+    }
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('message', handleConfirmation)
+      timeouts.forEach(timeout => clearTimeout(timeout))
     }
   }, [editMode])
 
@@ -158,12 +213,12 @@ export default function MaterialEditorNew() {
     }
   }
 
-  // Render component in iframe whenever data changes
+  // Render component in iframe only when code or data changes (NOT elementStyles)
+  // Style changes are applied directly to the DOM via updateShapeStyle
   useEffect(() => {
     console.log("=== useEffect triggered ===")
     console.log("componentCode exists:", !!componentCode)
     console.log("componentData exists:", !!componentData)
-    console.log("elementStyles exists:", !!elementStyles)
 
     if (!componentCode || !componentData) {
       console.log("Skipping render - waiting for data")
@@ -174,19 +229,8 @@ export default function MaterialEditorNew() {
     // Add small delay to ensure iframe DOM is ready
     setTimeout(() => {
       renderComponentInIframe()
-
-      // Send current editMode after iframe is rendered
-      setTimeout(() => {
-        if (iframeRef.current && iframeRef.current.contentWindow) {
-          console.log('🔄 Re-sending editMode after iframe render:', editMode)
-          iframeRef.current.contentWindow.postMessage({
-            type: 'setEditMode',
-            editMode: editMode
-          }, '*')
-        }
-      }, 500)
     }, 100)
-  }, [componentCode, componentData, elementStyles, editMode])
+  }, [componentCode, componentData])
 
   const renderComponentInIframe = () => {
     if (!iframeRef.current) return
@@ -320,6 +364,12 @@ export default function MaterialEditorNew() {
                 } else {
                   console.log('ℹ️ EditMode unchanged, skipping UI update');
                 }
+
+                // Send confirmation back to parent
+                window.parent.postMessage({
+                  type: 'editModeConfirmed',
+                  editMode: newEditMode
+                }, '*');
               }
             });
 
@@ -438,9 +488,9 @@ export default function MaterialEditorNew() {
                     console.log('📦 Received elementStyles:', elementStylesObject);
                     console.log('📊 Total shapes:', Object.keys(elementStylesObject).length);
 
-                    // ===== data-key 기반 클릭 핸들러 등록 =====
-                    // 모든 요소의 data-key 속성을 읽어서 직접 매핑합니다.
                     let totalHandlers = 0;
+
+                    // ===== Strategy 1: data-key 기반 =====
                     const allElementsWithDataKey = document.querySelectorAll('[data-key]');
                     console.log(\`🔍 Found \${allElementsWithDataKey.length} elements with data-key attribute\`);
 
@@ -448,45 +498,92 @@ export default function MaterialEditorNew() {
                       const dataKey = element.getAttribute('data-key');
 
                       if (dataKey && elementStylesObject[dataKey]) {
-                        // 편집 가능하게 설정
-                        element.classList.add('editable-shape');
+                        // Only add if not already marked as editable
+                        if (!element.classList.contains('editable-shape')) {
+                          element.classList.add('editable-shape');
+                          element.setAttribute('data-shape-name', dataKey);
+                          console.log(\`  ✓ Element #\${index}: data-key="\${dataKey}"\`);
+                          totalHandlers++;
+                        } else {
+                          // Count existing handlers too
+                          totalHandlers++;
+                        }
+                      }
+                    });
 
-                        console.log(\`  ✓ Element #\${index}: data-key="\${dataKey}"\`);
+                    // ===== Strategy 2: className 기반 (data-key가 없을 때) =====
+                    if (totalHandlers === 0) {
+                      console.log('⚠️ No data-key found, trying className-based selection...');
 
-                        // 클릭 이벤트 리스너 추가
-                        element.addEventListener('click', (e) => {
-                          // 편집 모드일 때만 동작
-                          if (!currentEditMode) {
-                            console.log('⏸️ View mode: click ignored');
-                            return;
+                      Object.keys(elementStylesObject).forEach((shapeName) => {
+                        const shapeConfig = elementStylesObject[shapeName];
+                        if (!shapeConfig.className) return;
+
+                        // className에서 첫 번째 클래스 추출
+                        const firstClass = shapeConfig.className.trim().split(/\s+/)[0];
+                        if (!firstClass) return;
+
+                        const elements = document.querySelectorAll(\`.\${firstClass}\`);
+                        console.log(\`🔍 Found \${elements.length} elements with class "\${firstClass}" for shape "\${shapeName}"\`);
+
+                        elements.forEach((element, index) => {
+                          // Only add if not already marked as editable
+                          if (!element.classList.contains('editable-shape')) {
+                            element.classList.add('editable-shape');
+                            element.setAttribute('data-shape-name', shapeName);
+                            element.setAttribute('data-key', shapeName);
+                            console.log(\`  ✓ Element #\${index}: className="\${firstClass}" → shapeName="\${shapeName}"\`);
+                            totalHandlers++;
+                          } else {
+                            // Count existing handlers too
+                            totalHandlers++;
                           }
+                        });
+                      });
+                    }
 
-                          e.preventDefault();
-                          e.stopPropagation();
+                    // ===== 통합 클릭 핸들러 등록 =====
+                    const editableElements = document.querySelectorAll('.editable-shape');
+                    console.log(\`📌 Total editable elements: \${editableElements.length}\`);
 
-                          console.log('🖱️ Element clicked!');
-                          console.log('  data-key:', dataKey);
-                          console.log('  Shape data:', elementStylesObject[dataKey]);
+                    editableElements.forEach((element) => {
+                      // Skip if handler already attached
+                      if (element.hasAttribute('data-handler-attached')) {
+                        return;
+                      }
 
-                          // 기존 선택 제거
-                          document.querySelectorAll('.selected').forEach(el => {
-                            el.classList.remove('selected');
-                          });
+                      // Mark as handler attached
+                      element.setAttribute('data-handler-attached', 'true');
 
-                          // 현재 요소 선택
-                          element.classList.add('selected');
+                      element.addEventListener('click', (e) => {
+                        // Check body class instead of currentEditMode variable to avoid closure issues
+                        if (!document.body.classList.contains('edit-mode')) {
+                          console.log('⏸️ View mode: click ignored');
+                          return;
+                        }
 
-                          // 부모 윈도우에 선택 알림
-                          window.parent.postMessage({
-                            type: 'shapeSelected',
-                            shapeName: dataKey
-                          }, '*');
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        const shapeName = element.getAttribute('data-shape-name');
+                        console.log('🖱️ Element clicked!');
+                        console.log('  shapeName:', shapeName);
+                        console.log('  Shape data:', elementStylesObject[shapeName]);
+
+                        // 기존 선택 제거
+                        document.querySelectorAll('.selected').forEach(el => {
+                          el.classList.remove('selected');
                         });
 
-                        totalHandlers++;
-                      } else if (dataKey) {
-                        console.warn(\`  ⚠️ Element has data-key="\${dataKey}" but not found in elementStyles\`);
-                      }
+                        // 현재 요소 선택
+                        element.classList.add('selected');
+
+                        // 부모 윈도우에 선택 알림
+                        window.parent.postMessage({
+                          type: 'shapeSelected',
+                          shapeName: shapeName
+                        }, '*');
+                      });
                     });
 
                     console.log(\`=== Total click handlers added: \${totalHandlers} ===\`);
@@ -501,6 +598,9 @@ export default function MaterialEditorNew() {
 
                   // Try adding handlers after render
                   setTimeout(addClickHandlers, 500);
+
+                  // Expose addClickHandlers globally so it can be called from parent
+                  window.refreshClickHandlers = addClickHandlers;
 
                 } catch (error) {
                   console.error('Component render error:', error);
@@ -573,11 +673,57 @@ export default function MaterialEditorNew() {
       const { data: { session } } = await supabase.auth.getSession()
       const accessToken = session?.access_token
 
-      // Update the current slide's styles in generatedSlides
+      // Step 1: Upload pending images to backend
+      const updatedStyles = { ...elementStyles }
+
+      if (pendingImageUploads.size > 0) {
+        toast.info(`${pendingImageUploads.size}개의 이미지를 업로드하는 중...`)
+
+        for (const [shapeName, file] of pendingImageUploads.entries()) {
+          try {
+            // Create FormData for file upload
+            const formData = new FormData()
+            formData.append('file', file)
+            formData.append('shape_name', shapeName)
+
+            // Upload to backend
+            const API_BASE_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://127.0.0.1:8000'
+            const uploadResponse = await fetch(`${API_BASE_URL}/materials/${id}/upload-image`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`
+              },
+              body: formData
+            })
+
+            if (!uploadResponse.ok) {
+              throw new Error('Image upload failed')
+            }
+
+            const uploadResult = await uploadResponse.json()
+            const s3Url = uploadResult.url
+
+            console.log(`Uploaded ${shapeName}:`, s3Url)
+
+            // Replace object URL with S3 URL in styles
+            if (updatedStyles[shapeName]?.style?.backgroundImage) {
+              updatedStyles[shapeName].style.backgroundImage = `url('${s3Url}')`
+            }
+          } catch (error) {
+            console.error(`Failed to upload image for ${shapeName}:`, error)
+            toast.error(`${shapeName} 이미지 업로드 실패`)
+          }
+        }
+
+        // Clear pending uploads
+        setPendingImageUploads(new Map())
+      }
+
+      // Step 2: Update the current slide's styles and data in generatedSlides
       const updatedGeneratedSlides = generatedSlides.map((slide, index) => {
         if (index === currentSlideIndex) {
           // Convert 'absolute' back to 'fixed' for storage (reverse the rendering change)
-          const storedStyles = { ...elementStyles }
+          const storedStyles = { ...updatedStyles }
           Object.keys(storedStyles).forEach(key => {
             if (storedStyles[key]?.className) {
               storedStyles[key].className = storedStyles[key].className
@@ -585,9 +731,13 @@ export default function MaterialEditorNew() {
             }
           })
 
+          // Update data - wrap in array if it was originally an array
+          const updatedData = Array.isArray(slide.data) ? [componentData] : componentData
+
           return {
             ...slide,
-            styles: storedStyles
+            styles: storedStyles,
+            data: updatedData
           }
         }
         return slide
@@ -595,7 +745,7 @@ export default function MaterialEditorNew() {
 
       console.log("Saving updated generated_slides:", updatedGeneratedSlides)
 
-      // Send to layout-styles endpoint
+      // Step 3: Send to layout-styles endpoint
       await updateMaterialLayoutStyles(
         parseInt(id),
         {
@@ -605,6 +755,8 @@ export default function MaterialEditorNew() {
       )
 
       // Update local state
+      setElementStyles(updatedStyles)
+      setComponentData(componentData)
       setGeneratedSlides(updatedGeneratedSlides)
 
       toast.success("저장되었습니다!")
@@ -619,6 +771,7 @@ export default function MaterialEditorNew() {
   const handleReset = () => {
     loadMaterialData()
     setSelectedShape(null)
+    setPendingImageUploads(new Map())
     toast.info("초기 상태로 복원되었습니다")
   }
 
@@ -645,12 +798,85 @@ export default function MaterialEditorNew() {
     if (iframeRef.current) {
       const iframeDoc = iframeRef.current.contentDocument
       if (iframeDoc) {
-        const elements = iframeDoc.querySelectorAll(`.${shapeName}`)
+        // Use data-key attribute to find elements
+        const elements = iframeDoc.querySelectorAll(`[data-key="${shapeName}"]`)
+        console.log(`Found ${elements.length} elements with data-key="${shapeName}"`)
         elements.forEach((element: any) => {
           element.style[styleKey] = value
+          console.log(`Applied ${styleKey}=${value} to element`)
         })
       }
     }
+  }
+
+  const updateShapeData = (shapeName: string, dataKey: string, value: any) => {
+    console.log(`Updating data for ${shapeName}.${dataKey} to:`, value)
+
+    // Update iframe element content directly for instant preview (before state update)
+    if (iframeRef.current) {
+      const iframeDoc = iframeRef.current.contentDocument
+      if (iframeDoc) {
+        const elements = iframeDoc.querySelectorAll(`[data-key="${shapeName}"]`)
+        console.log(`Found ${elements.length} elements with data-key="${shapeName}" for data update`)
+        elements.forEach((element: any) => {
+          if (dataKey === 'text' || dataKey === 'content') {
+            element.textContent = value
+            console.log(`Updated text content to: ${value}`)
+          }
+        })
+      }
+    }
+
+    // Update componentData state
+    setComponentData((prev: any) => {
+      if (!prev) return prev
+
+      // Deep clone to avoid mutation
+      const newData = JSON.parse(JSON.stringify(prev))
+
+      // Find and update the shape data
+      // Try different possible structures
+      if (newData[shapeName]) {
+        // Direct object structure: { shape_1: { text: "..." } }
+        newData[shapeName] = {
+          ...newData[shapeName],
+          [dataKey]: value
+        }
+      } else if (newData.shapes && newData.shapes[shapeName]) {
+        // Nested structure: { shapes: { shape_1: { text: "..." } } }
+        newData.shapes[shapeName] = {
+          ...newData.shapes[shapeName],
+          [dataKey]: value
+        }
+      } else if (Array.isArray(newData)) {
+        // Array structure: [{ key: "shape_1", text: "..." }]
+        const index = newData.findIndex((item: any) => item.key === shapeName || item.name === shapeName)
+        if (index !== -1) {
+          newData[index] = {
+            ...newData[index],
+            [dataKey]: value
+          }
+        }
+      }
+
+      console.log('Updated componentData:', newData)
+      return newData
+    })
+  }
+
+  const getShapeData = (shapeName: string) => {
+    if (!componentData) return null
+
+    // Try different possible structures
+    if (componentData[shapeName]) {
+      return componentData[shapeName]
+    } else if (componentData.shapes && componentData.shapes[shapeName]) {
+      return componentData.shapes[shapeName]
+    } else if (Array.isArray(componentData)) {
+      return componentData.find((item: any) => item.key === shapeName || item.name === shapeName)
+    }
+
+    return null
   }
 
   const deleteShapeStyleProperty = (shapeName: string, styleKey: string) => {
@@ -673,7 +899,8 @@ export default function MaterialEditorNew() {
     if (iframeRef.current) {
       const iframeDoc = iframeRef.current.contentDocument
       if (iframeDoc) {
-        const elements = iframeDoc.querySelectorAll(`.${shapeName}`)
+        // Use data-key attribute to find elements
+        const elements = iframeDoc.querySelectorAll(`[data-key="${shapeName}"]`)
         elements.forEach((element: any) => {
           element.style[styleKey] = ''
         })
@@ -681,16 +908,24 @@ export default function MaterialEditorNew() {
     }
   }
 
-  const updateShapeClassName = (shapeName: string, newClassName: string) => {
-    console.log(`Updating ${shapeName} className to:`, newClassName)
+  const handleBackgroundImageUpload = (shapeName: string, file: File) => {
+    // Create object URL for preview
+    const objectUrl = URL.createObjectURL(file)
 
-    setElementStyles((prev: any) => ({
-      ...prev,
-      [shapeName]: {
-        ...prev[shapeName],
-        className: newClassName
-      }
-    }))
+    // Store file for later upload
+    setPendingImageUploads(prev => {
+      const newMap = new Map(prev)
+      newMap.set(shapeName, file)
+      return newMap
+    })
+
+    // Set temporary preview with object URL
+    updateShapeStyle(shapeName, "backgroundImage", `url('${objectUrl}')`)
+    updateShapeStyle(shapeName, "backgroundSize", "cover")
+    updateShapeStyle(shapeName, "backgroundPosition", "center")
+    updateShapeStyle(shapeName, "backgroundRepeat", "no-repeat")
+
+    toast.info("이미지가 선택되었습니다. 저장 버튼을 눌러 업로드하세요.")
   }
 
   const selectedShapeData = selectedShape ? elementStyles[selectedShape] : null
@@ -764,12 +999,9 @@ export default function MaterialEditorNew() {
         </div>
 
         {/* Right Sidebar: Style Editor */}
-        <div className="w-[500px] bg-white border-l border-gray-200 overflow-y-auto">
+        <div className="w-[500px] bg-white border-l border-gray-200 flex flex-col">
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-xl font-semibold">스타일 편집</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              {selectedShape ? `편집 중: ${selectedShape}` : '요소를 클릭하여 선택하세요'}
-            </p>
 
             {/* View Mode Warning */}
             {!editMode && (
@@ -781,124 +1013,92 @@ export default function MaterialEditorNew() {
           </div>
 
           {/* Selected Shape Editor */}
-          {selectedShape && selectedShapeData ? (
-            <ScrollArea className="h-[calc(100vh-200px)]">
-              <div className={`p-6 space-y-4 ${!editMode ? 'opacity-50 pointer-events-none' : ''}`}>
-                {/* Success Message */}
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
-                  ✓ 요소가 선택되었습니다. 스타일 변경사항이 즉시 반영됩니다.
-                </div>
-
-                {/* className Editor */}
-                <Card className="p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-semibold">className</Label>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => {
-                        navigator.clipboard.writeText(selectedShapeData.className || '')
-                        toast.success('className이 복사되었습니다')
-                      }}
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                  <Textarea
-                    value={selectedShapeData.className || ""}
-                    onChange={(e) => updateShapeClassName(selectedShape, e.target.value)}
-                    placeholder="예: flex items-center justify-center"
-                    rows={3}
-                    className="font-mono text-xs"
-                  />
-                </Card>
-
-                {/* All Style Properties */}
-                <Card className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-semibold">style 속성</Label>
-                    <span className="text-xs text-muted-foreground">
-                      {Object.keys(selectedShapeData.style || {}).length}개
-                    </span>
-                  </div>
-
+          <div className="flex-1 overflow-y-auto">
+            {selectedShape && selectedShapeData ? (
+              <ScrollArea className="h-full">
+                <div className={`p-6 space-y-3 ${!editMode ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {/* Position */}
                   <div className="space-y-2">
-                    {Object.entries(selectedShapeData.style || {}).map(([key, value]) => (
-                      <div key={key} className="flex gap-2 items-start p-2 bg-muted/50 rounded">
-                        <div className="flex-1 space-y-1">
-                          <Label className="text-xs font-mono text-muted-foreground">
-                            {key}
-                          </Label>
-                          <Input
-                            value={String(value)}
-                            onChange={(e) => updateShapeStyle(selectedShape, key, e.target.value)}
-                            className="h-8 text-xs font-mono"
-                          />
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 mt-5 flex-shrink-0"
-                          onClick={() => deleteShapeStyleProperty(selectedShape, key)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                    <Label className="text-xs font-semibold">위치</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs text-gray-500">X (left)</Label>
+                        <Input
+                          type="number"
+                          value={String(selectedShapeData.style?.left || "").replace('px', '')}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            updateShapeStyle(selectedShape, "left", value ? `${value}px` : "")
+                          }}
+                          placeholder="0"
+                          className="h-8 text-xs font-mono"
+                        />
                       </div>
-                    ))}
-                  </div>
-
-                  {/* Add New Property */}
-                  <div className="pt-3 border-t border-border">
-                    <Label className="text-xs font-semibold mb-2 block">
-                      새 속성 추가
-                    </Label>
-                    <div className="space-y-2">
-                      <Input
-                        placeholder="속성 이름 (예: fontSize)"
-                        value={newStyleKey}
-                        onChange={(e) => setNewStyleKey(e.target.value)}
-                        className="h-8 text-xs font-mono"
-                      />
-                      <Input
-                        placeholder="값 (예: 1.5rem)"
-                        value={newStyleValue}
-                        onChange={(e) => setNewStyleValue(e.target.value)}
-                        className="h-8 text-xs font-mono"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && newStyleKey && newStyleValue) {
-                            updateShapeStyle(selectedShape, newStyleKey, newStyleValue)
-                            setNewStyleKey("")
-                            setNewStyleValue("")
-                          }
-                        }}
-                      />
-                      <Button
-                        size="sm"
-                        className="w-full h-8"
-                        onClick={() => {
-                          if (newStyleKey && newStyleValue) {
-                            updateShapeStyle(selectedShape, newStyleKey, newStyleValue)
-                            setNewStyleKey("")
-                            setNewStyleValue("")
-                          }
-                        }}
-                        disabled={!newStyleKey || !newStyleValue}
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        추가
-                      </Button>
+                      <div>
+                        <Label className="text-xs text-gray-500">Y (top)</Label>
+                        <Input
+                          type="number"
+                          value={String(selectedShapeData.style?.top || "").replace('px', '')}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            updateShapeStyle(selectedShape, "top", value ? `${value}px` : "")
+                          }}
+                          placeholder="0"
+                          className="h-8 text-xs font-mono"
+                        />
+                      </div>
                     </div>
                   </div>
-                </Card>
 
-                {/* Quick Edit Shortcuts */}
-                <Card className="p-4 space-y-3">
-                  <Label className="text-sm font-semibold">빠른 편집</Label>
+                  {/* Data Content */}
+                  {(() => {
+                    const shapeData = getShapeData(selectedShape)
+                    console.log('Shape data for', selectedShape, ':', shapeData)
+                    console.log('Component data:', componentData)
+
+                    // Always show content editor if shape is selected
+                    return (
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold">내용 편집</Label>
+
+                        {/* Text/Content field */}
+                        {shapeData && (shapeData.text !== undefined || shapeData.content !== undefined) ? (
+                          <div>
+                            <Label className="text-xs text-gray-500 mb-1">텍스트</Label>
+                            <Textarea
+                              value={String(shapeData.text || shapeData.content || "")}
+                              onChange={(e) => {
+                                const key = shapeData.text !== undefined ? 'text' : 'content'
+                                updateShapeData(selectedShape, key, e.target.value)
+                              }}
+                              placeholder="텍스트 입력"
+                              className="min-h-[80px] text-xs"
+                            />
+                          </div>
+                        ) : (
+                          <div className="text-xs text-gray-400 p-3 bg-gray-50 rounded border border-gray-200">
+                            이 요소에는 편집 가능한 텍스트 데이터가 없습니다.
+                          </div>
+                        )}
+
+                        {/* Show all data properties for debugging */}
+                        {shapeData && Object.keys(shapeData).length > 0 && (
+                          <details className="text-xs">
+                            <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
+                              데이터 구조 보기
+                            </summary>
+                            <pre className="mt-2 p-2 bg-gray-50 rounded border border-gray-200 overflow-auto max-h-32">
+                              {JSON.stringify(shapeData, null, 2)}
+                            </pre>
+                          </details>
+                        )}
+                      </div>
+                    )
+                  })()}
 
                   {/* Color */}
                   <div className="space-y-2">
-                    <Label className="text-xs">색상 (color)</Label>
+                    <Label className="text-xs">글씨 색상</Label>
                     <div className="flex gap-2">
                       <Input
                         type="color"
@@ -909,79 +1109,230 @@ export default function MaterialEditorNew() {
                       <Input
                         value={String(selectedShapeData.style?.color || "")}
                         onChange={(e) => updateShapeStyle(selectedShape, "color", e.target.value)}
-                        placeholder="색상"
+                        placeholder="글씨 색상"
                         className="flex-1 h-8 text-xs font-mono"
                       />
                     </div>
                   </div>
 
-                  {/* Background */}
+                  {/* Background Color */}
                   <div className="space-y-2">
-                    <Label className="text-xs">배경 (background)</Label>
-                    <Textarea
-                      value={String(selectedShapeData.style?.background || "")}
-                      onChange={(e) => updateShapeStyle(selectedShape, "background", e.target.value)}
-                      placeholder="예: linear-gradient(...)"
-                      rows={2}
-                      className="text-xs font-mono"
+                    <Label className="text-xs">배경색</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="color"
+                        value={String(selectedShapeData.style?.backgroundColor || "#ffffff")}
+                        onChange={(e) => updateShapeStyle(selectedShape, "backgroundColor", e.target.value)}
+                        className="w-16 h-8 cursor-pointer"
+                      />
+                      <Input
+                        value={String(selectedShapeData.style?.backgroundColor || "")}
+                        onChange={(e) => updateShapeStyle(selectedShape, "backgroundColor", e.target.value)}
+                        placeholder="배경색"
+                        className="flex-1 h-8 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Background Image */}
+                  <div className="space-y-2">
+                    <Label className="text-xs">배경 이미지</Label>
+
+                    {/* Mode Toggle */}
+                    <div className="flex gap-2 mb-2">
+                      <button
+                        onClick={() => setBgImageMode('url')}
+                        className={`flex-1 px-3 py-1.5 text-xs rounded-md transition-colors ${
+                          bgImageMode === 'url'
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        URL 입력
+                      </button>
+                      <button
+                        onClick={() => setBgImageMode('upload')}
+                        className={`flex-1 px-3 py-1.5 text-xs rounded-md transition-colors ${
+                          bgImageMode === 'upload'
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        파일 업로드
+                      </button>
+                    </div>
+
+                    {/* URL Input Mode */}
+                    {bgImageMode === 'url' && (
+                      <Input
+                        type="text"
+                        value={String(selectedShapeData.style?.backgroundImage || "").replace(/^url\(['"]?|['"]?\)$/g, '')}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          if (value) {
+                            // Set background image with cover properties
+                            updateShapeStyle(selectedShape, "backgroundImage", `url('${value}')`)
+                            updateShapeStyle(selectedShape, "backgroundSize", "cover")
+                            updateShapeStyle(selectedShape, "backgroundPosition", "center")
+                            updateShapeStyle(selectedShape, "backgroundRepeat", "no-repeat")
+                          } else {
+                            // Clear background image and related properties
+                            updateShapeStyle(selectedShape, "backgroundImage", "")
+                            updateShapeStyle(selectedShape, "backgroundSize", "")
+                            updateShapeStyle(selectedShape, "backgroundPosition", "")
+                            updateShapeStyle(selectedShape, "backgroundRepeat", "")
+                          }
+                        }}
+                        placeholder="이미지 URL 입력"
+                        className="h-8 text-xs font-mono"
+                      />
+                    )}
+
+                    {/* File Upload Mode */}
+                    {bgImageMode === 'upload' && (
+                      <div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              handleBackgroundImageUpload(selectedShape, file)
+                            }
+                          }}
+                          className="w-full h-8 text-xs border rounded-md file:mr-2 file:px-3 file:py-1 file:rounded-l-md file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                        />
+                        {pendingImageUploads.has(selectedShape) && (
+                          <p className="text-xs text-orange-600 mt-1">
+                            ⏳ 저장 대기 중 - 저장 버튼을 눌러주세요
+                          </p>
+                        )}
+                        {selectedShapeData.style?.backgroundImage && (
+                          <div className="mt-1 p-2 bg-gray-50 rounded border border-gray-200">
+                            <p className="text-xs text-gray-600 mb-1">미리보기:</p>
+                            <img
+                              src={String(selectedShapeData.style.backgroundImage).replace(/^url\(['"]?|['"]?\)$/g, '')}
+                              alt="Background preview"
+                              className="w-full h-20 object-cover rounded"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Border */}
+                  <div className="space-y-2">
+                    <Label className="text-xs">테두리</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <select
+                        value={borderStyle}
+                        onChange={(e) => {
+                          setBorderStyle(e.target.value)
+                          if (borderWidth && e.target.value !== 'none') {
+                            updateShapeStyle(selectedShape, "border", `${borderWidth}px ${e.target.value} ${borderColor}`)
+                          } else if (e.target.value === 'none') {
+                            updateShapeStyle(selectedShape, "border", "none")
+                          }
+                        }}
+                        className="h-8 px-2 text-xs border rounded-md"
+                      >
+                        <option value="none">없음</option>
+                        <option value="solid">실선</option>
+                        <option value="dashed">대시</option>
+                        <option value="dotted">점선</option>
+                        <option value="double">이중선</option>
+                      </select>
+                      <Input
+                        type="number"
+                        value={borderWidth}
+                        onChange={(e) => {
+                          setBorderWidth(e.target.value)
+                          if (e.target.value && borderStyle !== 'none') {
+                            updateShapeStyle(selectedShape, "border", `${e.target.value}px ${borderStyle} ${borderColor}`)
+                          }
+                        }}
+                        placeholder="두께"
+                        className="h-8 text-xs"
+                      />
+                      <Input
+                        type="color"
+                        value={borderColor}
+                        onChange={(e) => {
+                          setBorderColor(e.target.value)
+                          if (borderWidth && borderStyle !== 'none') {
+                            updateShapeStyle(selectedShape, "border", `${borderWidth}px ${borderStyle} ${e.target.value}`)
+                          }
+                        }}
+                        className="h-8 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Border Radius */}
+                  <div className="space-y-2">
+                    <Label className="text-xs">모서리 둥글기 (px)</Label>
+                    <Input
+                      type="number"
+                      value={String(selectedShapeData.style?.borderRadius || "").replace('px', '')}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        updateShapeStyle(selectedShape, "borderRadius", value ? `${value}px` : "")
+                      }}
+                      placeholder="예: 8"
+                      className="h-8 text-xs font-mono"
                     />
+                  </div>
+
+                  {/* Font Family */}
+                  <div className="space-y-2">
+                    <Label className="text-xs">글꼴</Label>
+                    <select
+                      value={String(selectedShapeData.style?.fontFamily || "")}
+                      onChange={(e) => updateShapeStyle(selectedShape, "fontFamily", e.target.value)}
+                      className="w-full h-8 px-2 text-xs border rounded-md"
+                    >
+                      <option value="">기본 글꼴</option>
+                      <optgroup label="한글 글꼴">
+                        <option value="'Noto Sans KR', sans-serif">Noto Sans KR</option>
+                        <option value="'Nanum Gothic', sans-serif">나눔고딕</option>
+                        <option value="'Nanum Myeongjo', serif">나눔명조</option>
+                        <option value="'Malgun Gothic', sans-serif">맑은 고딕</option>
+                        <option value="Dotum, sans-serif">돋움</option>
+                        <option value="Gulim, sans-serif">굴림</option>
+                      </optgroup>
+                      <optgroup label="영문 글꼴">
+                        <option value="Arial, sans-serif">Arial</option>
+                        <option value="'Times New Roman', serif">Times New Roman</option>
+                        <option value="'Courier New', monospace">Courier New</option>
+                        <option value="Georgia, serif">Georgia</option>
+                        <option value="Verdana, sans-serif">Verdana</option>
+                        <option value="'Comic Sans MS', cursive">Comic Sans MS</option>
+                        <option value="Impact, sans-serif">Impact</option>
+                      </optgroup>
+                    </select>
                   </div>
 
                   {/* Font Size */}
                   <div className="space-y-2">
-                    <Label className="text-xs">글자 크기 (fontSize)</Label>
+                    <Label className="text-xs">글자 크기 (px)</Label>
                     <Input
-                      value={String(selectedShapeData.style?.fontSize || "")}
-                      onChange={(e) => updateShapeStyle(selectedShape, "fontSize", e.target.value)}
-                      placeholder="예: 1.5rem, 24px"
+                      type="number"
+                      value={String(selectedShapeData.style?.fontSize || "").replace('px', '')}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        updateShapeStyle(selectedShape, "fontSize", value ? `${value}px` : "")
+                      }}
+                      placeholder="예: 24"
                       className="h-8 text-xs font-mono"
                     />
                   </div>
 
-                  {/* Padding */}
-                  <div className="space-y-2">
-                    <Label className="text-xs">여백 (padding)</Label>
-                    <Input
-                      value={String(selectedShapeData.style?.padding || "")}
-                      onChange={(e) => updateShapeStyle(selectedShape, "padding", e.target.value)}
-                      placeholder="예: 1rem, 16px"
-                      className="h-8 text-xs font-mono"
-                    />
-                  </div>
-
-                  {/* Margin */}
-                  <div className="space-y-2">
-                    <Label className="text-xs">마진 (margin)</Label>
-                    <Input
-                      value={String(selectedShapeData.style?.margin || "")}
-                      onChange={(e) => updateShapeStyle(selectedShape, "margin", e.target.value)}
-                      placeholder="예: 1rem auto"
-                      className="h-8 text-xs font-mono"
-                    />
-                  </div>
-                </Card>
-
-                {/* JSON Preview */}
-                <Card className="p-4 space-y-2">
-                  <Label className="text-xs font-semibold">JSON 미리보기</Label>
-                  <pre className="text-xs font-mono bg-muted p-2 rounded overflow-x-auto max-h-40 overflow-y-auto">
-                    {JSON.stringify({ [selectedShape]: selectedShapeData }, null, 2)}
-                  </pre>
-                </Card>
-
-                {/* Save Button */}
-                <div className="pt-4">
-                  <Button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="w-full gap-2 h-12 text-base"
-                  >
-                    <Save className="w-4 h-4" />
-                    {saving ? "저장 중..." : "저장하기"}
-                  </Button>
                 </div>
-              </div>
-            </ScrollArea>
+              </ScrollArea>
           ) : (
             <div className="p-6">
               <div className="text-center py-12">
@@ -1006,6 +1357,26 @@ export default function MaterialEditorNew() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+          </div>
+
+          {/* Footer with Save Button */}
+          {selectedShape && selectedShapeData && (
+            <div className="border-t border-gray-200 p-4 bg-white">
+              {pendingImageUploads.size > 0 && (
+                <div className="mb-2 p-2 bg-orange-50 border border-orange-200 rounded text-xs text-orange-700">
+                  📤 {pendingImageUploads.size}개의 이미지 업로드 대기 중
+                </div>
+              )}
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full gap-2 h-12 text-base"
+              >
+                <Save className="w-4 h-4" />
+                {saving ? "저장 중..." : "저장하기"}
+              </Button>
             </div>
           )}
         </div>
