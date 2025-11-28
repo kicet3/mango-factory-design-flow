@@ -18,7 +18,6 @@ import {
   Calendar,
   Layers,
   Eye,
-  Trash2,
   Sparkles,
   UserPen,
   ShieldCheck
@@ -27,16 +26,6 @@ import { supabase } from '@/integrations/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
 import { fetchAllConversions, type ConversionSummary } from '@/services/conversions'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 
 const ITEMS_PER_PAGE = 12
 
@@ -44,10 +33,9 @@ const ITEMS_PER_PAGE = 12
 interface ConversionCardProps {
   conversion: ConversionSummary
   onView: () => void
-  onDelete: () => void
 }
 
-function ConversionCard({ conversion, onView, onDelete }: ConversionCardProps) {
+function ConversionCard({ conversion, onView }: ConversionCardProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return `${date.getFullYear()}. ${date.getMonth() + 1}. ${date.getDate()}.`
@@ -167,14 +155,6 @@ function ConversionCard({ conversion, onView, onDelete }: ConversionCardProps) {
             <Eye className="w-4 h-4" />
             상세 보기
           </Button>
-          <Button
-            onClick={onDelete}
-            variant="outline"
-            size="icon"
-            className="hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
         </div>
       </CardContent>
     </Card>
@@ -190,8 +170,6 @@ export default function History() {
   const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [activeTab, setActiveTab] = useState<'completed' | 'pending'>(initialTab)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [conversionToDelete, setConversionToDelete] = useState<{ id: number; name: string } | null>(null)
   const { user } = useAuth()
   const navigate = useNavigate()
   const fetchedRef = useRef(false)
@@ -258,39 +236,6 @@ export default function History() {
 
   const handleView = (conversionId: number) => {
     navigate(`/conversions/detail/${conversionId}`)
-  }
-
-  const handleDeleteClick = (conversionId: number, name: string) => {
-    setConversionToDelete({ id: conversionId, name })
-    setDeleteDialogOpen(true)
-  }
-
-  const handleDeleteConfirm = async () => {
-    if (!conversionToDelete) return
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const accessToken = session?.access_token
-
-      const apiUrl = import.meta.env.VITE_BACKEND_API_URL || 'http://127.0.0.1:8000'
-      const response = await fetch(`${apiUrl}/conversions/${conversionToDelete.id}`, {
-        method: 'DELETE',
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-      })
-
-      if (!response.ok) {
-        throw new Error('삭제에 실패했습니다')
-      }
-
-      toast.success('교안이 삭제되었습니다')
-      fetchConversionsData(true) // 목록 새로고침
-    } catch (error) {
-      console.error('Delete error:', error)
-      toast.error('삭제 중 오류가 발생했습니다')
-    } finally {
-      setDeleteDialogOpen(false)
-      setConversionToDelete(null)
-    }
   }
 
   const handlePreviousPage = () => {
@@ -370,7 +315,6 @@ export default function History() {
                       key={conversion.id}
                       conversion={conversion}
                       onView={() => handleView(conversion.id)}
-                      onDelete={() => handleDeleteClick(conversion.id, conversion.content_name)}
                     />
                   ))}
                 </div>
@@ -393,7 +337,6 @@ export default function History() {
                       key={conversion.id}
                       conversion={conversion}
                       onView={() => handleView(conversion.id)}
-                      onDelete={() => handleDeleteClick(conversion.id, conversion.content_name)}
                     />
                   ))}
                 </div>
@@ -465,31 +408,6 @@ export default function History() {
           )}
         </div>
       </div>
-
-      {/* 삭제 확인 다이얼로그 */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>교안 삭제</AlertDialogTitle>
-            <AlertDialogDescription>
-              "{conversionToDelete?.name}" 교안을 정말 삭제하시겠습니까?
-              <br />
-              이 작업은 되돌릴 수 없습니다.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setConversionToDelete(null)}>
-              취소
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              삭제
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Layout>
   )
 }

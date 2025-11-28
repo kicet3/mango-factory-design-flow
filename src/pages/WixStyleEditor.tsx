@@ -2369,7 +2369,7 @@ export default function WixStyleEditor() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate('/admin/materials-v2')}
+              onClick={() => navigate(-1)}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               뒤로가기

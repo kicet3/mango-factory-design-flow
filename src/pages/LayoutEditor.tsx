@@ -210,6 +210,41 @@ export default function LayoutEditor() {
     const iframeDoc = iframeRef.current.contentDocument
     if (!iframeDoc) return
 
+    // React 코드 정리 및 컴포넌트 이름 추출 (ConversionDetail 방식)
+    let processedCode = reactCode
+
+    // import 문 제거
+    processedCode = processedCode.replace(/import\s+.*?from\s+['"].*?['"];?\s*/g, '')
+
+    // export 문 제거 및 컴포넌트 이름 추출
+    let componentName = 'Component'
+
+    // export default function ComponentName 형태
+    const exportDefaultFunctionMatch = processedCode.match(/export\s+default\s+function\s+(\w+)/)
+    if (exportDefaultFunctionMatch) {
+      componentName = exportDefaultFunctionMatch[1]
+      processedCode = processedCode.replace(/export\s+default\s+/, '')
+    }
+
+    // export default ComponentName 형태
+    const exportDefaultMatch = processedCode.match(/export\s+default\s+(\w+);?/)
+    if (exportDefaultMatch) {
+      componentName = exportDefaultMatch[1]
+      processedCode = processedCode.replace(/export\s+default\s+\w+;?\s*$/, '')
+    }
+
+    // function ComponentName 형태 (export가 없는 경우)
+    const functionMatch = processedCode.match(/function\s+(\w+)/)
+    if (functionMatch && !exportDefaultFunctionMatch) {
+      componentName = functionMatch[1]
+    }
+
+    // const ComponentName = 형태
+    const constMatch = processedCode.match(/const\s+(\w+)\s*=/)
+    if (constMatch && !functionMatch) {
+      componentName = constMatch[1]
+    }
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -217,9 +252,25 @@ export default function LayoutEditor() {
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <script src="https://cdn.tailwindcss.com"></script>
+          <script crossorigin="anonymous" src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+          <script crossorigin="anonymous" src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+          <script crossorigin="anonymous" src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
           <style>
-            * { box-sizing: border-box; margin: 0; padding: 0; }
-            body { font-family: system-ui, -apple-system, sans-serif; }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+              width: 1280px;
+              height: 720px;
+              font-family: system-ui, -apple-system, sans-serif;
+              overflow: hidden;
+              background: white;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            #root {
+              width: 100%;
+              height: 100%;
+            }
             .edit-mode [data-key] {
               cursor: pointer;
               transition: outline 0.15s ease;
@@ -232,84 +283,116 @@ export default function LayoutEditor() {
               outline: 2px solid #3b82f6 !important;
               outline-offset: 2px;
             }
+            #error-display {
+              padding: 20px;
+              background: #fee;
+              color: #c00;
+              font-family: monospace;
+              white-space: pre-wrap;
+              border: 2px solid #c00;
+              margin: 20px;
+            }
           </style>
         </head>
         <body class="${editMode ? 'edit-mode' : ''}">
           <div id="root"></div>
-          <div id="error-display" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(255,0,0,0.9); color:white; padding:20px; overflow:auto; white-space:pre-wrap; font-family:monospace;"></div>
-          <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-          <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-          <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-          <script type="text/babel">
-            const data = ${JSON.stringify(parsedData)};
-            const elementStyles = ${JSON.stringify(elementStyles)};
+          <div id="error-display" style="display: none;"></div>
 
-            const applyElementStyles = (props, shapeName) => {
-              const styleData = elementStyles[shapeName];
-              if (!styleData) return props;
-
-              let newClassName = props.className || '';
-              if (styleData.className) {
-                newClassName = styleData.className;
-              }
-
-              let newStyle = { ...(props.style || {}) };
-              if (styleData.style) {
-                newStyle = { ...newStyle, ...styleData.style };
-              }
-
-              return {
-                ...props,
-                className: newClassName,
-                style: newStyle,
-                'data-key': shapeName
-              };
-            };
-
-            try {
-              const codeToExecute = \`${reactCode.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`;
-
-              const transformedCode = Babel.transform(codeToExecute, {
-                presets: ['react'],
-                filename: 'component.jsx'
-              }).code;
-
-              const ComponentModule = {};
-              const componentFunc = new Function('React', 'data', 'elementStyles', 'applyElementStyles', 'exports', transformedCode + '; return typeof Component !== "undefined" ? Component : null;');
-              const Component = componentFunc(React, data, elementStyles, applyElementStyles, ComponentModule);
-
-              if (Component) {
-                const root = ReactDOM.createRoot(document.getElementById('root'));
-                root.render(React.createElement(Component, { data, elementStyles, applyElementStyles }));
-
-                // 클릭 핸들러 추가
-                const addClickHandlers = () => {
-                  const elementsWithDataKey = document.querySelectorAll('[data-key]');
-                  elementsWithDataKey.forEach((element) => {
-                    const dataKey = element.getAttribute('data-key');
-                    if (dataKey && elementStyles[dataKey]) {
-                      element.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        document.querySelectorAll('.selected').forEach(el => {
-                          el.classList.remove('selected');
-                        });
-                        element.classList.add('selected');
-                        window.parent.postMessage({
-                          type: 'shapeSelected',
-                          shapeName: dataKey
-                        }, '*');
-                      });
-                    }
-                  });
-                };
-                setTimeout(addClickHandlers, 500);
-              }
-            } catch (error) {
-              console.error('Rendering error:', error);
+          <script>
+            window.onerror = function(msg, url, lineNo, columnNo, error) {
               const errorDiv = document.getElementById('error-display');
-              errorDiv.style.display = 'block';
-              errorDiv.textContent = 'Rendering Error:\\n\\n' + error.message;
-            }
+              if (errorDiv) {
+                errorDiv.style.display = 'block';
+                errorDiv.textContent = 'Error: ' + msg + '\\nLine: ' + lineNo + '\\n\\n' + (error ? error.stack : '');
+              }
+              console.error('Global error:', msg, error);
+              return false;
+            };
+          </script>
+
+          <script type="text/babel" data-type="module">
+            (function() {
+              // Wait for React to be available
+              function waitForReact() {
+                return new Promise((resolve) => {
+                  if (typeof React !== 'undefined' && typeof ReactDOM !== 'undefined') {
+                    resolve();
+                  } else {
+                    setTimeout(() => waitForReact().then(resolve), 100);
+                  }
+                });
+              }
+
+              waitForReact().then(() => {
+                try {
+                  const { useState, useEffect, useMemo } = React;
+
+                  const propsData = {
+                    data: ${JSON.stringify(parsedData)},
+                    elementStyles: ${JSON.stringify(elementStyles)}
+                  };
+
+                  const applyElementStyles = (props, shapeName) => {
+                    const styleData = propsData.elementStyles[shapeName];
+                    if (!styleData) return props;
+
+                    let newClassName = props.className || '';
+                    if (styleData.className) {
+                      newClassName = styleData.className;
+                    }
+
+                    let newStyle = { ...(props.style || {}) };
+                    if (styleData.style) {
+                      newStyle = { ...newStyle, ...styleData.style };
+                    }
+
+                    return {
+                      ...props,
+                      className: newClassName,
+                      style: newStyle,
+                      'data-key': shapeName
+                    };
+                  };
+
+                  ${processedCode}
+
+                  const rootElement = document.getElementById('root');
+                  const root = ReactDOM.createRoot(rootElement);
+                  root.render(React.createElement(${componentName}, { ...propsData, applyElementStyles }));
+
+                  // 클릭 핸들러 추가
+                  const addClickHandlers = () => {
+                    const elementsWithDataKey = document.querySelectorAll('[data-key]');
+                    elementsWithDataKey.forEach((element) => {
+                      const dataKey = element.getAttribute('data-key');
+                      if (dataKey && propsData.elementStyles[dataKey]) {
+                        element.addEventListener('click', (e) => {
+                          e.stopPropagation();
+                          document.querySelectorAll('.selected').forEach(el => {
+                            el.classList.remove('selected');
+                          });
+                          element.classList.add('selected');
+                          window.parent.postMessage({
+                            type: 'shapeSelected',
+                            shapeName: dataKey
+                          }, '*');
+                        });
+                      }
+                    });
+                  };
+                  setTimeout(addClickHandlers, 500);
+                } catch (error) {
+                  console.error('Rendering error:', error);
+                  const errorDiv = document.getElementById('error-display');
+                  if (errorDiv) {
+                    errorDiv.style.display = 'block';
+                    errorDiv.textContent = 'Rendering Error:\\n\\n' + error.message + '\\n\\nStack:\\n' + error.stack;
+                  }
+                }
+              }).catch((error) => {
+                console.error('React wait error:', error);
+              });
+            })();
           </script>
         </body>
       </html>
@@ -318,7 +401,7 @@ export default function LayoutEditor() {
     iframeDoc.open()
     iframeDoc.write(html)
     iframeDoc.close()
-  }, [reactCode, parsedData, editMode])
+  }, [reactCode, parsedData, editMode, elementStyles])
 
   // iframe 메시지 수신
   useEffect(() => {
@@ -506,7 +589,7 @@ export default function LayoutEditor() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate(`/conversions/detail/${id}`)}
+              onClick={() => navigate(-1)}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               뒤로가기
@@ -624,8 +707,8 @@ export default function LayoutEditor() {
         </button>
 
         {/* 중앙 - 미리보기 */}
-        <div className="flex-1 bg-gray-100 overflow-hidden flex items-center justify-center p-4">
-          <div className="bg-white shadow-lg rounded-lg overflow-hidden" style={{ width: '960px', height: '540px' }}>
+        <div className="flex-1 bg-black overflow-hidden flex items-center justify-center">
+          <div className="bg-white shadow-2xl overflow-hidden" style={{ width: '1280px', height: '720px', maxWidth: '100%', maxHeight: 'calc(100vh - 60px)' }}>
             <iframe
               ref={iframeRef}
               className="w-full h-full border-0"
