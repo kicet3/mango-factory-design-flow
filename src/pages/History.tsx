@@ -1,285 +1,315 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+// History - 수확 기록 페이지 (Conversions 기반)
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination'
-import { FileText, Download, Search, Filter, Calendar, RefreshCw } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  FileText,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  CheckCircle,
+  Clock,
+  Calendar,
+  Layers,
+  Eye,
+  Trash2,
+  Sparkles,
+  UserPen,
+  ShieldCheck
+} from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
-import { formatKoreanTime } from '@/lib/utils'
+import { fetchAllConversions, type ConversionSummary } from '@/services/conversions'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
-interface HistoryItem {
-  generation_response_id: number
-  generation_attrs_id: number
-  output_path: string | null
-  generation_status_type_id: number
-  created_at: string
-  teaching_style_names: string[]
-  cowork_type_names: string[]
-  generation_additional_message: string | null
-  course_material_name: string
-  course_type_name: string
-  generation_result_messages: string | null
-  generation_name: string | null
-  root_response_id: number
-  version_no: number
-  is_final: boolean
-  has_version_4: boolean
+const ITEMS_PER_PAGE = 12
+
+// Conversion 카드 컴포넌트
+interface ConversionCardProps {
+  conversion: ConversionSummary
+  onView: () => void
+  onDelete: () => void
 }
 
-interface CourseType {
-  course_type_id: number
-  course_type_name: string
-}
+function ConversionCard({ conversion, onView, onDelete }: ConversionCardProps) {
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return `${date.getFullYear()}. ${date.getMonth() + 1}. ${date.getDate()}.`
+  }
 
-export default function History() {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedSubject, setSelectedSubject] = useState('all')
-  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([])
-  const [courseTypes, setCourseTypes] = useState<CourseType[]>([])
-  const [loading, setLoading] = useState(true)
-  const [currentPage, setCurrentPage] = useState(1)
-  const { user } = useAuth()
-  const navigate = useNavigate()
-
-  const ITEMS_PER_PAGE = 12
-
-  useEffect(() => {
-    fetchCourseTypes()
-    if (user) {
-      fetchHistoryData()
-    }
-  }, [user])
-
-  const fetchCourseTypes = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('course_types')
-        .select('course_type_id, course_type_name')
-        .order('course_type_name')
-
-      if (error) throw error
-      setCourseTypes(data || [])
-    } catch (error) {
-      console.error('Error fetching course types:', error)
+  const getStatusBadge = (status?: string) => {
+    switch (status) {
+      case 'completed':
+        return (
+          <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            발행 완료
+          </Badge>
+        )
+      case 'processing':
+        return (
+          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
+            <Sparkles className="w-3 h-3 mr-1 animate-pulse" />
+            AI 생성중
+          </Badge>
+        )
+      case 'user_edit':
+        return (
+          <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">
+            <UserPen className="w-3 h-3 mr-1" />
+            유저 수정
+          </Badge>
+        )
+      case 'admin_edit':
+        return (
+          <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100">
+            <ShieldCheck className="w-3 h-3 mr-1" />
+            관리자 검토
+          </Badge>
+        )
+      default:
+        return (
+          <Badge variant="secondary" className="bg-gray-100 text-gray-700 hover:bg-gray-100">
+            <Clock className="w-3 h-3 mr-1" />
+            대기중
+          </Badge>
+        )
     }
   }
 
-  const fetchHistoryData = async () => {
+  return (
+    <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+      <CardContent className="p-6 space-y-4">
+        {/* 상단: 상태 & 날짜 */}
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+              <FileText className="w-5 h-5 text-primary" />
+            </div>
+            {getStatusBadge(conversion.status)}
+          </div>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Calendar className="h-3 w-3" />
+            {formatDate(conversion.created_at)}
+          </div>
+        </div>
+
+        {/* 제목 */}
+        <div className="space-y-1">
+          <h3 className="text-lg font-bold line-clamp-2">
+            {conversion.content_name || conversion.original_filename}
+          </h3>
+          {conversion.description && (
+            <p className="text-sm text-muted-foreground line-clamp-2">
+              {conversion.description}
+            </p>
+          )}
+        </div>
+
+        {/* 미리보기 영역 */}
+        <div className="relative bg-gray-100 rounded-lg aspect-video flex items-center justify-center overflow-hidden">
+          <div className="text-center space-y-2">
+            <div className="w-12 h-12 mx-auto text-gray-400">
+              <Layers className="w-full h-full" />
+            </div>
+            <p className="text-sm text-gray-500">
+              {conversion.total_slides}개 슬라이드
+            </p>
+          </div>
+        </div>
+
+        {/* 태그 */}
+        <div className="flex flex-wrap gap-2">
+          {conversion.framework && (
+            <Badge variant="outline" className="rounded-md">
+              {conversion.framework}
+            </Badge>
+          )}
+          {conversion.styling && (
+            <Badge variant="outline" className="rounded-md">
+              {conversion.styling}
+            </Badge>
+          )}
+          {conversion.file_type && (
+            <Badge variant="secondary" className="rounded-md">
+              {conversion.file_type.toUpperCase()}
+            </Badge>
+          )}
+          {conversion.total_components > 0 && (
+            <Badge variant="outline" className="rounded-md">
+              {conversion.total_components}개 컴포넌트
+            </Badge>
+          )}
+        </div>
+
+        {/* 버튼 */}
+        <div className="flex gap-2 pt-2">
+          <Button
+            onClick={onView}
+            className="flex-1 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white gap-2"
+          >
+            <Eye className="w-4 h-4" />
+            상세 보기
+          </Button>
+          <Button
+            onClick={onDelete}
+            variant="outline"
+            size="icon"
+            className="hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+export default function History() {
+  const [searchParams] = useSearchParams()
+  const initialTab = searchParams.get('tab') === 'pending' ? 'pending' : 'completed'
+
+  const [searchTerm, setSearchTerm] = useState('')
+  const [conversions, setConversions] = useState<ConversionSummary[]>([])
+  const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [activeTab, setActiveTab] = useState<'completed' | 'pending'>(initialTab)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [conversionToDelete, setConversionToDelete] = useState<{ id: number; name: string } | null>(null)
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const fetchedRef = useRef(false)
+
+  useEffect(() => {
+    if (user && !fetchedRef.current) {
+      fetchedRef.current = true
+      fetchConversionsData()
+    }
+  }, [user])
+
+  // 탭이나 검색어 변경시 페이지 초기화
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, searchTerm])
+
+  const fetchConversionsData = async (forceRefresh = false) => {
+    if (forceRefresh) {
+      fetchedRef.current = true
+    }
+
     try {
       setLoading(true)
-      
-      const { data, error } = await supabase
-        .from('generation_responses')
-        .select(`
-          generation_response_id,
-          output_path,
-          generation_status_type_id,
-          generation_result_messages,
-          generation_name,
-          created_at,
-          generation_attrs_id,
-          root_response_id,
-          version_no,
-          is_final,
-          generation_attrs!generation_responses_generation_attrs_id_fkey (
-            generation_additional_message,
-            course_material_id,
-            course_type_id,
-            generation_attrs_teaching_style_map!gatsm_genattrs_fkey (
-              teaching_styles (
-                teaching_style_name
-              )
-            ),
-            generation_attrs_cowork_type_map!generation_attrs_cowork_type_map_generation_attrs_id_fkey (
-              cowork_types!generation_attrs_cowork_type_map_cowork_type_id_fkey (
-                cowork_type_name
-              )
-            ),
-            course_materials!generation_attrs_course_material_id_fkey (
-              raw_course_material_id,
-              raw_course_materials!course_materials_raw_course_material_id_fkey (
-                course_material_name
-              )
-            )
-          )
-        `)
-        .eq('user_id', user.id)
-        .eq('version_no', 1)
-        .order('created_at', { ascending: false })
 
-      if (error) throw error
+      const { data: { session } } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
 
-      // Get course type names
-      const courseTypeIds = [...new Set((data || [])
-        .map(item => item.generation_attrs?.course_type_id)
-        .filter(Boolean))]
-      
-      const { data: courseTypesData } = await supabase
-        .from('course_types')
-        .select('course_type_id, course_type_name')
-        .in('course_type_id', courseTypeIds)
-      
-      const courseTypeMap = new Map(
-        (courseTypesData || []).map(ct => [ct.course_type_id, ct.course_type_name])
-      )
+      const response = await fetchAllConversions({
+        page: 1,
+        page_size: 100,
+      }, accessToken)
 
-      // Check for version 4 for each item
-      const rootIds = (data || []).map(item => item.root_response_id)
-      const { data: version4Data, error: version4Error } = await supabase
-        .from('generation_responses')
-        .select('root_response_id')
-        .eq('user_id', user.id)
-        .eq('version_no', 4)
-        .in('root_response_id', rootIds)
-
-      if (version4Error) {
-        console.error('Error checking version 4:', version4Error)
-      }
-
-      const version4RootIds = new Set(version4Data?.map(item => item.root_response_id) || [])
-
-      const formattedData: HistoryItem[] = (data || []).map(item => ({
-        generation_response_id: item.generation_response_id,
-        generation_attrs_id: item.generation_attrs_id,
-        output_path: item.output_path,
-        generation_status_type_id: item.generation_status_type_id,
-        created_at: item.created_at || new Date().toISOString(),
-        generation_result_messages: item.generation_result_messages,
-        generation_name: item.generation_name,
-        root_response_id: item.root_response_id,
-        version_no: item.version_no,
-        is_final: item.is_final,
-        has_version_4: version4RootIds.has(item.root_response_id),
-        teaching_style_names: Array.isArray(item.generation_attrs?.generation_attrs_teaching_style_map) 
-          ? item.generation_attrs.generation_attrs_teaching_style_map.map(
-              (map: any) => map.teaching_styles?.teaching_style_name
-            ).filter(Boolean) 
-          : [],
-        cowork_type_names: Array.isArray(item.generation_attrs?.generation_attrs_cowork_type_map)
-          ? item.generation_attrs.generation_attrs_cowork_type_map.map(
-              (map: any) => map.cowork_types?.cowork_type_name
-            ).filter(Boolean)
-          : [],
-        generation_additional_message: item.generation_attrs?.generation_additional_message || null,
-        course_material_name: item.generation_attrs?.course_materials?.raw_course_materials?.course_material_name || '',
-        course_type_name: courseTypeMap.get(item.generation_attrs?.course_type_id) || ''
-      }))
-
-      setHistoryItems(formattedData)
+      setConversions(response.conversions)
     } catch (error) {
-      console.error('Error fetching history data:', error)
-      toast.error('생성 이력을 불러오는 중 오류가 발생했습니다.')
+      console.error('Error fetching conversions:', error)
+      toast.error('교안 목록을 불러오는 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleDownload = async (outputPath: string | null, generationResponseId: number) => {
-    if (!outputPath) {
-      toast.error('파일 경로가 없습니다.')
-      return
-    }
+  // 탭과 검색어로 필터링
+  const filteredConversions = conversions.filter(conversion => {
+    const matchesSearch =
+      conversion.content_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      conversion.original_filename?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      conversion.description?.toLowerCase().includes(searchTerm.toLowerCase())
 
-    try {
-      console.log('Starting download for path:', outputPath)
+    const matchesTab = activeTab === 'completed'
+      ? conversion.status === 'completed'
+      : conversion.status !== 'completed'
 
-      const { data: sessionData } = await supabase.auth.getSession()
-      const accessToken = sessionData?.session?.access_token
-
-      const { data, error } = await supabase.functions.invoke('secure-download', {
-        body: { 
-          filePath: outputPath, 
-          fileType: 'generation',
-          generationId: generationResponseId
-        },
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-      })
-
-      console.log('Download response:', data, error)
-
-      if (error) {
-        console.error('Supabase function error:', error)
-        throw error
-      }
-
-      if (data?.success && data?.downloadUrl) {
-        const link = document.createElement('a')
-        link.href = data.downloadUrl
-        link.download = data.filename || 'generated-file'
-        link.target = '_blank'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        toast.success('파일이 성공적으로 다운로드되었습니다.')
-      } else {
-        throw new Error(data?.error || '다운로드에 실패했습니다.')
-      }
-    } catch (error: any) {
-      console.error('Download error:', error)
-      const msg = String(error?.message || '')
-      if (/401/.test(msg)) toast.error('인증이 필요합니다. 다시 로그인해 주세요.')
-      else if (/403/.test(msg)) toast.error('접근 권한이 없습니다.')
-      else if (/404/.test(msg)) toast.error('파일을 찾을 수 없습니다.')
-      else toast.error(`파일 다운로드 중 오류가 발생했습니다: ${msg || '알 수 없는 오류'}`)
-    }
-  }
-
-  const handleRegenerate = async (responseId: number) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('regenerate-generation', {
-        body: { response_id: responseId }
-      });
-
-      if (error) {
-        console.error('Regeneration error:', error);
-        toast.error('재생성 실패: ' + error.message);
-        return;
-      }
-
-      if (data?.success) {
-        toast.success(`V${data.data.version_no} 생성이 시작되었습니다. 남은 재생성: ${data.data.remaining_retries}/3`);
-        // Refresh the history after a short delay
-        setTimeout(fetchHistoryData, 2000);
-      } else {
-        toast.error('재생성 실패: ' + (data?.error || '알 수 없는 오류'));
-      }
-    } catch (error: any) {
-      console.error('Network error:', error);
-      toast.error('재생성 중 네트워크 오류가 발생했습니다');
-    }
-  }
-
-  const filteredHistory = historyItems.filter(item => {
-    const matchesSearch = (item.generation_name?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
-                         item.course_material_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (item.generation_additional_message?.toLowerCase().includes(searchTerm.toLowerCase()) || false)
-    const matchesSubject = selectedSubject === 'all' || item.course_type_name === selectedSubject
-    return matchesSearch && matchesSubject
+    return matchesSearch && matchesTab
   })
 
-  // 페이지네이션 로직
-  const totalPages = Math.ceil(filteredHistory.length / ITEMS_PER_PAGE)
+  // 페이지네이션
+  const totalPages = Math.ceil(filteredConversions.length / ITEMS_PER_PAGE)
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
-  const paginatedHistory = filteredHistory.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+  const paginatedConversions = filteredConversions.slice(startIndex, startIndex + ITEMS_PER_PAGE)
 
-  // 검색이나 필터가 변경될 때 첫 페이지로 돌아가기
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm, selectedSubject])
+  // 각 탭별 개수
+  const completedCount = conversions.filter(c => c.status === 'completed').length
+  const pendingCount = conversions.filter(c => c.status !== 'completed').length
+
+  const handleView = (conversionId: number) => {
+    navigate(`/conversions/detail/${conversionId}`)
+  }
+
+  const handleDeleteClick = (conversionId: number, name: string) => {
+    setConversionToDelete({ id: conversionId, name })
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!conversionToDelete) return
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
+
+      const apiUrl = import.meta.env.VITE_BACKEND_API_URL || 'http://127.0.0.1:8000'
+      const response = await fetch(`${apiUrl}/conversions/${conversionToDelete.id}`, {
+        method: 'DELETE',
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      })
+
+      if (!response.ok) {
+        throw new Error('삭제에 실패했습니다')
+      }
+
+      toast.success('교안이 삭제되었습니다')
+      fetchConversionsData(true) // 목록 새로고침
+    } catch (error) {
+      console.error('Delete error:', error)
+      toast.error('삭제 중 오류가 발생했습니다')
+    } finally {
+      setDeleteDialogOpen(false)
+      setConversionToDelete(null)
+    }
+  }
+
+  const handlePreviousPage = () => {
+    setCurrentPage((prev) => Math.max(1, prev - 1))
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleNextPage = () => {
+    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   if (loading) {
     return (
       <Layout>
-        <div className="p-6 space-y-6">
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">생성 이력을 불러오는 중...</p>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <Loader2 className="w-12 h-12 animate-spin mx-auto text-primary" />
+            <p className="text-muted-foreground">교안 목록을 불러오는 중...</p>
           </div>
         </div>
       </Layout>
@@ -288,166 +318,178 @@ export default function History() {
 
   return (
     <Layout>
-      <div className="p-6 space-y-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">생성 이력</h1>
-              <p className="text-muted-foreground mt-1">생성한 교육 자료를 확인하고 관리하세요</p>
-              <p className="text-xs text-muted-foreground mt-0.5">세부 내용 페이지에서 재생성 가능</p>
-            </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
+        <div className="container mx-auto max-w-7xl space-y-8">
+          {/* 헤더 */}
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-bold tracking-tight">수확 기록</h1>
+            <p className="text-muted-foreground">
+              생성된 교안을 확인하고 관리할 수 있습니다
+            </p>
           </div>
 
-          {/* Search and Filter Controls */}
-          <div className="flex flex-col sm:flex-row gap-4 mf-card p-4">
-            <div className="relative flex-1">
+          {/* 검색 */}
+          <div className="max-w-md mx-auto">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="자료 제목으로 검색..."
+                placeholder="교안 검색..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 mf-input"
+                className="pl-10"
               />
             </div>
-            <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="교과목" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">모든 교과목</SelectItem>
-                {courseTypes.map((courseType) => (
-                  <SelectItem key={courseType.course_type_id} value={courseType.course_type_name}>
-                    {courseType.course_type_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
-        </div>
 
-        {/* History Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {paginatedHistory.map((item) => (
-            <Card 
-              key={item.generation_response_id} 
-              className="mf-card group hover:scale-[1.02] transition-all duration-300 cursor-pointer"
-              onClick={() => navigate(`/generation/${item.generation_response_id}`)}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-primary" />
-                    <Badge variant="secondary" className="text-xs">
-                      {item.generation_status_type_id === 1 ? '대기중' : item.generation_status_type_id === 2 ? '진행중' : '완료'}
-                    </Badge>
-                    {item.is_final && (
-                      <Badge variant="default" className="text-xs">최종</Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    {formatKoreanTime(item.created_at)}
-                  </div>
+          {/* 탭 */}
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'completed' | 'pending')}>
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
+              <TabsTrigger value="completed" className="gap-2">
+                <CheckCircle className="w-4 h-4" />
+                발행 완료 ({completedCount})
+              </TabsTrigger>
+              <TabsTrigger value="pending" className="gap-2">
+                <Clock className="w-4 h-4" />
+                발행 검토중 ({pendingCount})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="completed" className="mt-8">
+              {paginatedConversions.length === 0 ? (
+                <div className="text-center py-16">
+                  <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                  <h3 className="text-lg font-medium mb-2">발행 완료된 교안이 없습니다</h3>
+                  <p className="text-muted-foreground">
+                    {searchTerm ? '검색 결과가 없습니다.' : '교안을 생성해보세요!'}
+                  </p>
                 </div>
-                <CardTitle className="text-lg line-clamp-2 group-hover:text-primary transition-colors">
-                  {item.generation_name || item.course_material_name}
-                </CardTitle>
-                {item.generation_additional_message && (
-                  <CardDescription className="text-sm text-muted-foreground line-clamp-2">
-                    {item.generation_additional_message}
-                  </CardDescription>
-                )}
-              </CardHeader>
-              
-              <CardContent className="pt-0">
-                <div className="flex items-center gap-2 mb-4 flex-wrap">
-                  {item.course_type_name && <Badge variant="outline">{item.course_type_name}</Badge>}
-                  {item.teaching_style_names.map((styleName, index) => (
-                    <Badge key={index} variant="outline">{styleName}</Badge>
-                  ))}
-                  {item.cowork_type_names.map((coworkName, index) => (
-                    <Badge key={index} variant="secondary">{coworkName}</Badge>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {paginatedConversions.map((conversion) => (
+                    <ConversionCard
+                      key={conversion.id}
+                      conversion={conversion}
+                      onView={() => handleView(conversion.id)}
+                      onDelete={() => handleDeleteClick(conversion.id, conversion.content_name)}
+                    />
                   ))}
                 </div>
-                
+              )}
+            </TabsContent>
+
+            <TabsContent value="pending" className="mt-8">
+              {paginatedConversions.length === 0 ? (
+                <div className="text-center py-16">
+                  <Clock className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                  <h3 className="text-lg font-medium mb-2">검토중인 교안이 없습니다</h3>
+                  <p className="text-muted-foreground">
+                    {searchTerm ? '검색 결과가 없습니다.' : '모든 교안이 발행 완료 상태입니다.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {paginatedConversions.map((conversion) => (
+                    <ConversionCard
+                      key={conversion.id}
+                      conversion={conversion}
+                      onView={() => handleView(conversion.id)}
+                      onDelete={() => handleDeleteClick(conversion.id, conversion.content_name)}
+                    />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+
+          {/* 페이지네이션 */}
+          {filteredConversions.length > 0 && totalPages > 1 && (
+            <>
+              <div className="flex items-center justify-center gap-4 pt-8">
+                <Button
+                  variant="outline"
+                  onClick={handlePreviousPage}
+                  disabled={currentPage === 1}
+                  className="gap-2"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  이전
+                </Button>
+
                 <div className="flex items-center gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDownload(item.output_path, item.generation_response_id)
-                    }}
-                    disabled={!item.output_path}
-                    className="flex-1"
-                  >
-                    <Download className="h-4 w-4 mr-1" />
-                    다운로드
-                  </Button>
+                  {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => {
+                    let page: number
+                    if (totalPages <= 10) {
+                      page = i + 1
+                    } else if (currentPage <= 5) {
+                      page = i + 1
+                    } else if (currentPage >= totalPages - 4) {
+                      page = totalPages - 9 + i
+                    } else {
+                      page = currentPage - 4 + i
+                    }
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => {
+                          setCurrentPage(page)
+                          window.scrollTo({ top: 0, behavior: 'smooth' })
+                        }}
+                        className={`w-10 h-10 rounded-lg transition-all ${
+                          page === currentPage
+                            ? "bg-primary text-primary-foreground font-semibold"
+                            : "bg-white hover:bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    )
+                  })}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+
+                <Button
+                  variant="outline"
+                  onClick={handleNextPage}
+                  disabled={currentPage === totalPages}
+                  className="gap-2"
+                >
+                  다음
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* 카운터 */}
+              <div className="text-center text-sm text-muted-foreground">
+                총 {filteredConversions.length}개 | {currentPage} / {totalPages} 페이지
+              </div>
+            </>
+          )}
         </div>
-
-        {/* Pagination */}
-        {filteredHistory.length > 0 && totalPages > 1 && (
-          <div className="flex justify-center mt-8">
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious 
-                    href="#" 
-                    onClick={(e) => {
-                      e.preventDefault()
-                      if (currentPage > 1) setCurrentPage(currentPage - 1)
-                    }}
-                    className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
-                  />
-                </PaginationItem>
-                
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <PaginationItem key={page}>
-                    <PaginationLink
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        setCurrentPage(page)
-                      }}
-                      isActive={currentPage === page}
-                    >
-                      {page}
-                    </PaginationLink>
-                  </PaginationItem>
-                ))}
-                
-                <PaginationItem>
-                  <PaginationNext 
-                    href="#" 
-                    onClick={(e) => {
-                      e.preventDefault()
-                      if (currentPage < totalPages) setCurrentPage(currentPage + 1)
-                    }}
-                    className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        )}
-
-        {filteredHistory.length === 0 && (
-          <div className="text-center py-12">
-            <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-medium text-foreground mb-2">생성된 자료가 없습니다</h3>
-            <p className="text-muted-foreground mb-4">새로운 교육 자료를 생성해보세요!</p>
-            <Button className="mf-button-primary" onClick={() => navigate('/generate')}>
-              자료 생성하기
-            </Button>
-          </div>
-        )}
       </div>
+
+      {/* 삭제 확인 다이얼로그 */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>교안 삭제</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{conversionToDelete?.name}" 교안을 정말 삭제하시겠습니까?
+              <br />
+              이 작업은 되돌릴 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConversionToDelete(null)}>
+              취소
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   )
 }

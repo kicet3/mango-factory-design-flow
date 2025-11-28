@@ -26,6 +26,8 @@ import TeachingMaterialsExample from "./pages/TeachingMaterialsExample";
 import MaterialDetailPage from "./pages/MaterialDetailPage";
 import TeachingSession from "./pages/TeachingSession";
 import MaterialEditorNew from "./pages/MaterialEditorNew";
+import ConversionDetail from "./pages/ConversionDetail";
+import LayoutEditor from "./pages/LayoutEditor";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +74,16 @@ const App = () => (
             <Route path="/history" element={
               <ProtectedRoute>
                 <History />
+              </ProtectedRoute>
+            } />
+            <Route path="/conversions/detail/:id" element={
+              <ProtectedRoute>
+                <ConversionDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/layout-editor/:id" element={
+              <ProtectedRoute>
+                <LayoutEditor />
               </ProtectedRoute>
             } />
             <Route path="/generation/:id" element={

@@ -13,6 +13,7 @@ export interface ConversionSummary {
   framework: string
   styling: string
   success: boolean
+  status?: string
   total_components: number
   total_slides: number
   generation_time: number
@@ -32,6 +33,7 @@ export interface ConversionsListParams {
   page_size?: number
   user_id?: string
   success_only?: boolean
+  status?: 'processing' | 'user_edit' | 'admin_edit' | 'completed'
 }
 
 export interface Component {
@@ -42,6 +44,7 @@ export interface Component {
   code: string  // ← component_code가 아니라 code
   component_code?: string  // 하위 호환성을 위해 유지
   file_path?: string
+  file_type?: string
   dependencies?: string[]
   props_interface?: string
   imports?: string[]
@@ -148,7 +151,8 @@ export async function fetchAllConversions(
   const {
     page = 1,
     page_size = 12,
-    success_only = false
+    success_only = false,
+    status
   } = params
 
   const queryParams = new URLSearchParams({
@@ -160,6 +164,10 @@ export async function fetchAllConversions(
     queryParams.append('success_only', 'true')
   }
 
+  if (status) {
+    queryParams.append('status', status)
+  }
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
@@ -168,7 +176,7 @@ export async function fetchAllConversions(
     headers['Authorization'] = `Bearer ${accessToken}`
   }
 
-  const response = await fetch(`${API_BASE_URL}/conversions/all/list?${queryParams.toString()}`, {
+  const response = await fetch(`${API_BASE_URL}/conversions/?${queryParams.toString()}`, {
     method: 'GET',
     headers,
   })
@@ -184,13 +192,20 @@ export async function fetchAllConversions(
  * 변환 작업 상세 조회
  */
 export async function fetchConversionDetail(
-  conversionId: number | string
+  conversionId: number | string,
+  accessToken?: string
 ): Promise<ConversionDetail> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
+  }
+
   const response = await fetch(`${API_BASE_URL}/conversions/${conversionId}`, {
     method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
   })
 
   if (!response.ok) {

@@ -6,7 +6,7 @@ import { User, LogOut, ChevronDown, BookOpen } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { ProfileImage } from "@/components/ProfileImage"
 import { NotificationDropdown } from "@/components/NotificationDropdown"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { supabase } from "@/integrations/supabase/client"
 
 interface LayoutProps {
@@ -19,11 +19,13 @@ export function Layout({ children, hideSidebar = false, hideHeader = false }: La
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const [profilePhotoPath, setProfilePhotoPath] = useState<string>('')
+  const fetchedRef = useRef(false)
 
   useEffect(() => {
     const fetchProfilePhoto = async () => {
-      if (!user) return
-      
+      if (!user || fetchedRef.current) return
+      fetchedRef.current = true
+
       try {
         const { data: teacherInfo, error } = await supabase
           .from('teacher_info')

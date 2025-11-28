@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { ArrowLeft, Save, RotateCcw, Upload, Image as ImageIcon } from "lucide-react"
+import { ArrowLeft, Save, RotateCcw, Upload, Image as ImageIcon, ChevronLeft, ChevronRight, Layers } from "lucide-react"
 import { toast } from "sonner"
 import { fetchMaterialDetail, updateMaterialLayoutStyles, fetchLayoutImages, uploadLayoutImage, type LayoutImageItem } from "@/services/conversions"
 import { supabase } from "@/integrations/supabase/client"
@@ -17,6 +17,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import {
   Tabs,
   TabsContent,
@@ -36,7 +47,9 @@ export default function MaterialEditorNew() {
   const [elementStyles, setElementStyles] = useState<any>({})
   const [selectedShape, setSelectedShape] = useState<string | null>(null)
   const [generatedSlides, setGeneratedSlides] = useState<any[]>([]) // Store full generated_slides data
-  const [currentSlideIndex] = useState(0) // Currently editing slide index
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0) // Currently editing slide index
+  const [slidePanelOpen, setSlidePanelOpen] = useState(true) // Slide panel toggle state
+  const [conversionComponents, setConversionComponents] = useState<any[]>([]) // Store conversion components for slide switching
 
   // Edit mode toggle
   const [editMode, setEditMode] = useState(true) // true = 편집 모드, false = 보기 모드
@@ -61,6 +74,14 @@ export default function MaterialEditorNew() {
   const [currentShapeForImage, setCurrentShapeForImage] = useState<string | null>(null)
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null)
   const [imageNameInput, setImageNameInput] = useState('')
+
+  // Text editing state - 원본과 편집 중인 텍스트 분리
+  const [editingTextData, setEditingTextData] = useState<{
+    dataKey: string | null
+    originalValue: any
+    editingValue: any
+    hasChanges: boolean
+  }>({ dataKey: null, originalValue: null, editingValue: null, hasChanges: false })
 
   useEffect(() => {
     loadMaterialData()
@@ -167,8 +188,12 @@ export default function MaterialEditorNew() {
 
       console.log("Layout Component Name:", layoutComponentName)
 
-      // Find matching component code
+      // Find matching component code and store all components for slide switching
       if (materialDetail.conversion && materialDetail.conversion.components) {
+        // Store all components for later use when switching slides
+        setConversionComponents(materialDetail.conversion.components)
+        console.log("Stored conversion components:", materialDetail.conversion.components.length)
+
         const matchingComponent = materialDetail.conversion.components.find(
           (c: any) => c.component_name === layoutComponentName
         )
@@ -664,7 +689,50 @@ export default function MaterialEditorNew() {
         console.log('Current elementStyles:', elementStyles)
         console.log('Shape data:', elementStyles[event.data.shapeName])
 
-        setSelectedShape(event.data.shapeName)
+        const shapeName = event.data.shapeName
+        setSelectedShape(shapeName)
+
+        // 원본 텍스트 데이터 저장
+        if (iframeRef.current && componentData) {
+          const iframeDoc = iframeRef.current.contentDocument
+          if (iframeDoc) {
+            const element = iframeDoc.querySelector(`[data-shape-name="${shapeName}"]`)
+            const textContent = element?.textContent?.trim() || null
+
+            if (textContent) {
+              // componentData에서 매칭되는 key 찾기
+              let matchedKey: string | null = null
+              for (const [key, value] of Object.entries(componentData)) {
+                if (typeof value === 'string' && value.trim() === textContent) {
+                  matchedKey = key
+                  break
+                }
+                if (typeof value === 'object' && value !== null) {
+                  const obj = value as Record<string, any>
+                  if (obj.text?.trim() === textContent || obj.content?.trim() === textContent) {
+                    matchedKey = key
+                    break
+                  }
+                }
+              }
+
+              if (matchedKey) {
+                const originalValue = componentData[matchedKey]
+                setEditingTextData({
+                  dataKey: matchedKey,
+                  originalValue: originalValue,
+                  editingValue: typeof originalValue === 'string' ? originalValue : (originalValue?.text || originalValue?.content || ''),
+                  hasChanges: false
+                })
+                console.log('📝 Original text data saved:', { key: matchedKey, value: originalValue })
+              } else {
+                setEditingTextData({ dataKey: null, originalValue: null, editingValue: null, hasChanges: false })
+              }
+            } else {
+              setEditingTextData({ dataKey: null, originalValue: null, editingValue: null, hasChanges: false })
+            }
+          }
+        }
 
         console.log('✅ Selected shape updated!')
       } else if (event.data.type === 'iframe-log') {
@@ -683,7 +751,7 @@ export default function MaterialEditorNew() {
       console.log('Message listener removed')
       window.removeEventListener('message', handleMessage)
     }
-  }, [elementStyles])
+  }, [elementStyles, componentData])
 
   const handleSave = async () => {
     if (!id) return
@@ -793,7 +861,69 @@ export default function MaterialEditorNew() {
     loadMaterialData()
     setSelectedShape(null)
     setPendingImageUploads(new Map())
+    setEditingTextData({ dataKey: null, originalValue: null, editingValue: null, hasChanges: false })
     toast.info("초기 상태로 복원되었습니다")
+  }
+
+  // 슬라이드 전환 함수
+  const handleSlideChange = (index: number) => {
+    if (index < 0 || index >= generatedSlides.length) return
+    if (index === currentSlideIndex) return
+
+    // 현재 편집 중인 데이터가 있으면 저장
+    setSelectedShape(null)
+    setEditingTextData({ dataKey: null, originalValue: null, editingValue: null, hasChanges: false })
+
+    // 새 슬라이드 데이터 로드
+    const slide = generatedSlides[index]
+
+    // Get component code from conversion.components
+    const layoutComponentName = slide.layout_component
+    console.log("Switching to slide:", index, "layout_component:", layoutComponentName)
+
+    // Find and set matching component code
+    if (conversionComponents.length > 0 && layoutComponentName) {
+      const matchingComponent = conversionComponents.find(
+        (c: any) => c.component_name === layoutComponentName
+      )
+
+      if (matchingComponent) {
+        setComponentCode(matchingComponent.code)
+        console.log("Found matching component for slide:", matchingComponent.component_name)
+      } else {
+        console.warn("No matching component found for:", layoutComponentName)
+      }
+    }
+
+    // Get slide data
+    let slideData = slide.data || null
+    let slideElementStyles = slide.styles || null
+
+    // Set component data - slideData is already an array, use first element
+    if (slideData && Array.isArray(slideData) && slideData.length > 0) {
+      setComponentData(slideData[0])
+    } else {
+      setComponentData(slideData)
+    }
+
+    if (slideElementStyles) {
+      const modifiedStyles = { ...slideElementStyles }
+
+      // Replace 'fixed' with 'absolute' for container rendering
+      Object.keys(modifiedStyles).forEach(key => {
+        if (modifiedStyles[key]?.className) {
+          modifiedStyles[key].className = modifiedStyles[key].className
+            .replace(/\bfixed\b/g, 'absolute')
+        }
+      })
+
+      setElementStyles(modifiedStyles)
+    } else {
+      setElementStyles({})
+    }
+
+    setCurrentSlideIndex(index)
+    toast.info(`슬라이드 ${index + 1}로 전환되었습니다`)
   }
 
   const handleBack = () => {
@@ -830,23 +960,8 @@ export default function MaterialEditorNew() {
     }
   }
 
-  const updateShapeData = (shapeName: string, dataKey: string, value: any) => {
-    console.log(`Updating data for ${shapeName}.${dataKey} to:`, value)
-
-    // Update iframe element content directly for instant preview (before state update)
-    if (iframeRef.current) {
-      const iframeDoc = iframeRef.current.contentDocument
-      if (iframeDoc) {
-        const elements = iframeDoc.querySelectorAll(`[data-key="${shapeName}"]`)
-        console.log(`Found ${elements.length} elements with data-key="${shapeName}" for data update`)
-        elements.forEach((element: any) => {
-          if (dataKey === 'text' || dataKey === 'content') {
-            element.textContent = value
-            console.log(`Updated text content to: ${value}`)
-          }
-        })
-      }
-    }
+  const updateShapeData = (componentDataKey: string, fieldKey: string, value: any) => {
+    console.log(`Updating data for ${componentDataKey}.${fieldKey} to:`, value)
 
     // Update componentData state
     setComponentData((prev: any) => {
@@ -855,46 +970,100 @@ export default function MaterialEditorNew() {
       // Deep clone to avoid mutation
       const newData = JSON.parse(JSON.stringify(prev))
 
-      // Find and update the shape data
-      // Try different possible structures
-      if (newData[shapeName]) {
-        // Direct object structure: { shape_1: { text: "..." } }
-        newData[shapeName] = {
-          ...newData[shapeName],
-          [dataKey]: value
-        }
-      } else if (newData.shapes && newData.shapes[shapeName]) {
-        // Nested structure: { shapes: { shape_1: { text: "..." } } }
-        newData.shapes[shapeName] = {
-          ...newData.shapes[shapeName],
-          [dataKey]: value
-        }
-      } else if (Array.isArray(newData)) {
-        // Array structure: [{ key: "shape_1", text: "..." }]
-        const index = newData.findIndex((item: any) => item.key === shapeName || item.name === shapeName)
-        if (index !== -1) {
-          newData[index] = {
-            ...newData[index],
-            [dataKey]: value
-          }
+      // Update based on the data type
+      if (typeof newData[componentDataKey] === 'string') {
+        // If it's a simple string value, replace it directly
+        newData[componentDataKey] = value
+      } else if (typeof newData[componentDataKey] === 'object' && newData[componentDataKey] !== null) {
+        // If it's an object, update the specific field
+        newData[componentDataKey] = {
+          ...newData[componentDataKey],
+          [fieldKey]: value
         }
       }
 
       console.log('Updated componentData:', newData)
       return newData
     })
+
+    // Update iframe element content directly for instant preview
+    // Find element by matching text content
+    if (iframeRef.current) {
+      const iframeDoc = iframeRef.current.contentDocument
+      if (iframeDoc) {
+        // Find elements that contain the old text value
+        const oldValue = componentData?.[componentDataKey]
+        const searchText = typeof oldValue === 'string' ? oldValue : (oldValue?.text || oldValue?.content)
+
+        if (searchText && (fieldKey === 'text' || fieldKey === 'content')) {
+          const allElements = iframeDoc.querySelectorAll('.editable-shape')
+          allElements.forEach((element: any) => {
+            if (element.textContent?.trim() === searchText.trim()) {
+              element.textContent = value
+              console.log(`Updated iframe element text to: ${value}`)
+            }
+          })
+        }
+      }
+    }
   }
 
-  const getShapeData = (shapeName: string) => {
+  // Get the current text content of a shape from iframe
+  const getShapeTextContent = (shapeName: string): string | null => {
+    if (!iframeRef.current) return null
+    const iframeDoc = iframeRef.current.contentDocument
+    if (!iframeDoc) return null
+
+    const element = iframeDoc.querySelector(`[data-shape-name="${shapeName}"]`)
+    return element?.textContent?.trim() || null
+  }
+
+  // Find matching key in componentData by text content
+  const findDataKeyByText = (textContent: string): string | null => {
+    if (!componentData || !textContent) return null
+
+    // Search through componentData keys
+    for (const [key, value] of Object.entries(componentData)) {
+      if (typeof value === 'string' && value.trim() === textContent) {
+        return key
+      }
+      // Handle nested object with text field
+      if (typeof value === 'object' && value !== null) {
+        const obj = value as Record<string, any>
+        if (obj.text?.trim() === textContent || obj.content?.trim() === textContent) {
+          return key
+        }
+      }
+    }
+    return null
+  }
+
+  // Get shape data by matching text content
+  const getShapeData = (shapeName: string): { key: string; value: any } | null => {
     if (!componentData) return null
 
-    // Try different possible structures
+    // Get current text content from the shape element
+    const textContent = getShapeTextContent(shapeName)
+
+    if (textContent) {
+      // Find matching key by text content
+      const matchedKey = findDataKeyByText(textContent)
+      if (matchedKey) {
+        const value = componentData[matchedKey]
+        return {
+          key: matchedKey,
+          value: typeof value === 'string' ? { text: value } : value
+        }
+      }
+    }
+
+    // Fallback: try direct key matching
     if (componentData[shapeName]) {
-      return componentData[shapeName]
-    } else if (componentData.shapes && componentData.shapes[shapeName]) {
-      return componentData.shapes[shapeName]
-    } else if (Array.isArray(componentData)) {
-      return componentData.find((item: any) => item.key === shapeName || item.name === shapeName)
+      const value = componentData[shapeName]
+      return {
+        key: shapeName,
+        value: typeof value === 'string' ? { text: value } : value
+      }
     }
 
     return null
@@ -1040,6 +1209,73 @@ export default function MaterialEditorNew() {
   return (
     <Layout hideSidebar>
       <div className="flex h-screen w-full bg-gray-50">
+        {/* Left Sidebar: Slide Panel */}
+        <div className={`relative flex flex-col bg-white border-r border-gray-200 transition-all duration-300 ${slidePanelOpen ? 'w-[200px]' : 'w-0'}`}>
+          {/* Panel Content */}
+          {slidePanelOpen && (
+            <>
+              {/* Panel Header */}
+              <div className="h-16 border-b border-gray-200 flex items-center justify-between px-4">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-gray-600" />
+                  <span className="font-medium text-sm">슬라이드</span>
+                  <span className="text-xs text-gray-500">({generatedSlides.length})</span>
+                </div>
+              </div>
+
+              {/* Slide List */}
+              <ScrollArea className="flex-1">
+                <div className="p-3 space-y-2">
+                  {generatedSlides.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400 text-sm">
+                      슬라이드 없음
+                    </div>
+                  ) : (
+                    generatedSlides.map((slide, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleSlideChange(index)}
+                        className={`w-full p-2 rounded-lg border transition-all text-left ${
+                          currentSlideIndex === index
+                            ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {/* Slide Thumbnail */}
+                        <div className="aspect-video bg-gray-100 rounded mb-2 flex items-center justify-center overflow-hidden">
+                          <span className="text-2xl font-bold text-gray-300">{index + 1}</span>
+                        </div>
+                        {/* Slide Info */}
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-medium text-gray-700 truncate">
+                            슬라이드 {index + 1}
+                          </div>
+                          <div className="text-[10px] text-gray-400 truncate">
+                            {slide.layout_component || '레이아웃'}
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </>
+          )}
+
+          {/* Toggle Button */}
+          <button
+            onClick={() => setSlidePanelOpen(!slidePanelOpen)}
+            className="absolute top-1/2 -right-4 transform -translate-y-1/2 z-10 w-8 h-16 bg-white border border-gray-200 rounded-r-lg shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors"
+            title={slidePanelOpen ? '패널 닫기' : '패널 열기'}
+          >
+            {slidePanelOpen ? (
+              <ChevronLeft className="w-4 h-4 text-gray-600" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-gray-600" />
+            )}
+          </button>
+        </div>
+
         {/* Center Panel: Preview */}
         <div className="flex-1 flex flex-col">
           {/* Top Header Bar */}
@@ -1069,10 +1305,30 @@ export default function MaterialEditorNew() {
                 </button>
               </div>
 
-              <Button variant="outline" onClick={handleReset} className="gap-2">
-                <RotateCcw className="w-4 h-4" />
-                초기화
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <RotateCcw className="w-4 h-4" />
+                    초기화
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>초기화 확인</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      모든 변경사항이 취소되고 초기 상태로 복원됩니다.
+                      <br />
+                      정말 초기화하시겠습니까?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>취소</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleReset}>
+                      초기화
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
 
@@ -1146,79 +1402,176 @@ export default function MaterialEditorNew() {
 
                   {/* Data Content */}
                   {(() => {
-                    const shapeData = getShapeData(selectedShape)
-                    console.log('🔍 Shape data for', selectedShape, ':', shapeData)
-                    console.log('📦 Component data:', componentData)
+                    const { dataKey, originalValue, editingValue, hasChanges } = editingTextData
+                    const currentText = getShapeTextContent(selectedShape)
 
-                    // Always show content editor if shape is selected
+                    console.log('🔍 Editing text data:', editingTextData)
+                    console.log('📦 Component data:', componentData)
+                    console.log('📝 Current text:', currentText)
+
+                    // 텍스트 적용 함수 (iframe + componentData 업데이트)
+                    const applyTextChange = () => {
+                      if (!dataKey || !hasChanges) return
+
+                      // componentData 업데이트
+                      setComponentData((prev: any) => {
+                        if (!prev) return prev
+                        const newData = { ...prev }
+
+                        if (typeof originalValue === 'string') {
+                          newData[dataKey] = editingValue
+                        } else if (typeof originalValue === 'object' && originalValue !== null) {
+                          const fieldKey = originalValue.text !== undefined ? 'text' : 'content'
+                          newData[dataKey] = {
+                            ...originalValue,
+                            [fieldKey]: editingValue
+                          }
+                        }
+
+                        return newData
+                      })
+
+                      // iframe 업데이트
+                      if (iframeRef.current) {
+                        const iframeDoc = iframeRef.current.contentDocument
+                        if (iframeDoc) {
+                          const elements = iframeDoc.querySelectorAll(`[data-shape-name="${selectedShape}"]`)
+                          elements.forEach((el: any) => {
+                            el.textContent = editingValue
+                          })
+                        }
+                      }
+
+                      // 상태 업데이트 - 변경사항 적용됨
+                      setEditingTextData(prev => ({
+                        ...prev,
+                        originalValue: typeof originalValue === 'string' ? editingValue : { ...originalValue, [originalValue.text !== undefined ? 'text' : 'content']: editingValue },
+                        hasChanges: false
+                      }))
+
+                      toast.success('텍스트가 적용되었습니다')
+                    }
+
+                    // 취소 함수
+                    const cancelTextChange = () => {
+                      if (!dataKey) return
+
+                      const originalText = typeof originalValue === 'string' ? originalValue : (originalValue?.text || originalValue?.content || '')
+
+                      // 원본으로 되돌리기
+                      setEditingTextData(prev => ({
+                        ...prev,
+                        editingValue: originalText,
+                        hasChanges: false
+                      }))
+
+                      // iframe도 원본으로 되돌리기
+                      if (iframeRef.current) {
+                        const iframeDoc = iframeRef.current.contentDocument
+                        if (iframeDoc) {
+                          const elements = iframeDoc.querySelectorAll(`[data-shape-name="${selectedShape}"]`)
+                          elements.forEach((el: any) => {
+                            el.textContent = originalText
+                          })
+                        }
+                      }
+                    }
+
                     return (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <Label className="text-xs font-semibold">내용 편집</Label>
-                          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
-                            {selectedShape}
-                          </span>
+                          {dataKey && (
+                            <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-mono">
+                              {dataKey}
+                            </span>
+                          )}
                         </div>
 
                         {/* Text/Content field */}
-                        {shapeData ? (
+                        {dataKey ? (
                           <>
-                            {/* Text or Content field */}
-                            {(shapeData.text !== undefined || shapeData.content !== undefined) && (
-                              <div>
-                                <Label className="text-xs text-gray-500 mb-1">텍스트</Label>
-                                <Textarea
-                                  value={String(shapeData.text || shapeData.content || "")}
-                                  onChange={(e) => {
-                                    const key = shapeData.text !== undefined ? 'text' : 'content'
-                                    console.log(`✏️ Updating ${selectedShape}.${key}:`, e.target.value)
-                                    updateShapeData(selectedShape, key, e.target.value)
-                                  }}
-                                  placeholder="텍스트 입력"
-                                  className="min-h-[80px] text-xs"
-                                />
+                            <div>
+                              <Label className="text-xs text-gray-500 mb-1">텍스트</Label>
+                              <Textarea
+                                value={editingValue || ''}
+                                onChange={(e) => {
+                                  const newValue = e.target.value
+                                  const originalText = typeof originalValue === 'string' ? originalValue : (originalValue?.text || originalValue?.content || '')
+
+                                  setEditingTextData(prev => ({
+                                    ...prev,
+                                    editingValue: newValue,
+                                    hasChanges: newValue !== originalText
+                                  }))
+
+                                  // 실시간 미리보기 (iframe 업데이트)
+                                  if (iframeRef.current) {
+                                    const iframeDoc = iframeRef.current.contentDocument
+                                    if (iframeDoc) {
+                                      const elements = iframeDoc.querySelectorAll(`[data-shape-name="${selectedShape}"]`)
+                                      elements.forEach((el: any) => {
+                                        el.textContent = newValue
+                                      })
+                                    }
+                                  }
+                                }}
+                                placeholder="텍스트 입력"
+                                className="min-h-[80px] text-xs"
+                              />
+                            </div>
+
+                            {/* 변경사항 표시 및 적용/취소 버튼 */}
+                            {hasChanges && (
+                              <div className="flex items-center gap-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                                <span className="text-xs text-yellow-700 flex-1">
+                                  ⚠️ 변경사항이 있습니다
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={cancelTextChange}
+                                  className="h-7 text-xs"
+                                >
+                                  취소
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={applyTextChange}
+                                  className="h-7 text-xs"
+                                >
+                                  적용
+                                </Button>
                               </div>
                             )}
 
-                            {/* Show other editable fields */}
-                            {Object.entries(shapeData).map(([key, value]) => {
-                              // Skip text, content, key, name (already handled or system fields)
-                              if (key === 'text' || key === 'content' || key === 'key' || key === 'name') return null
-
-                              // Only show string or number fields for now
-                              if (typeof value !== 'string' && typeof value !== 'number') return null
-
-                              return (
-                                <div key={key}>
-                                  <Label className="text-xs text-gray-500 mb-1">{key}</Label>
-                                  <Input
-                                    value={String(value || "")}
-                                    onChange={(e) => {
-                                      console.log(`✏️ Updating ${selectedShape}.${key}:`, e.target.value)
-                                      updateShapeData(selectedShape, key, e.target.value)
-                                    }}
-                                    placeholder={`${key} 입력`}
-                                    className="h-8 text-xs"
-                                  />
-                                </div>
-                              )
-                            })}
-
-                            {/* Show data structure for debugging */}
+                            {/* 원본 텍스트 표시 */}
                             <details className="text-xs">
                               <summary className="cursor-pointer text-gray-500 hover:text-gray-700 py-1">
-                                📊 데이터 구조 보기 (generated_slides.data)
+                                📊 원본 데이터 보기
                               </summary>
                               <pre className="mt-2 p-2 bg-gray-50 rounded border border-gray-200 overflow-auto max-h-32 text-[10px]">
-                                {JSON.stringify(shapeData, null, 2)}
+                                {JSON.stringify({ key: dataKey, value: originalValue }, null, 2)}
                               </pre>
                             </details>
                           </>
                         ) : (
                           <div className="text-xs text-gray-400 p-3 bg-gray-50 rounded border border-gray-200">
-                            ⚠️ 이 요소는 generated_slides.data에 매칭되는 데이터가 없습니다.
-                            <br />
-                            <span className="text-[10px] mt-1 block">data-key: {selectedShape}</span>
+                            <div className="mb-2">ℹ️ 텍스트 매칭 정보</div>
+                            <div className="text-[10px] space-y-1">
+                              <div>현재 텍스트: <span className="font-mono bg-gray-100 px-1">{currentText || '(없음)'}</span></div>
+                              <div>매칭된 키: <span className="font-mono bg-gray-100 px-1">{'매칭 없음'}</span></div>
+                            </div>
+                            {componentData && (
+                              <details className="mt-2">
+                                <summary className="cursor-pointer hover:text-gray-600">사용 가능한 키 보기</summary>
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {Object.keys(componentData).map(key => (
+                                    <span key={key} className="bg-gray-100 px-1.5 py-0.5 rounded font-mono">{key}</span>
+                                  ))}
+                                </div>
+                              </details>
+                            )}
                           </div>
                         )}
                       </div>

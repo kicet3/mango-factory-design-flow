@@ -140,12 +140,16 @@ export default function GenerateV2Upload() {
       if (lessonIntroText) formData.append('lesson_intro', lessonIntroText)
 
       // 수업 자료 파일들
+      const fileTypes: string[] = []
       uploadedFiles.forEach((uploadedFile) => {
         if (uploadedFile.file) {
-          formData.append(`files`, uploadedFile.file)
-          formData.append(`file_types`, uploadedFile.type)
+          formData.append('files', uploadedFile.file)
+          fileTypes.push(uploadedFile.type)
         }
       })
+      if (fileTypes.length > 0) {
+        formData.append('file_types', JSON.stringify(fileTypes))
+      }
 
       // 기본 설정
       formData.append('component_name', 'GeneratedComponent')
@@ -178,9 +182,9 @@ export default function GenerateV2Upload() {
         duration: 2000,
       })
 
-      // 자료 관리 페이지로 이동
+      // 수확 기록 페이지의 발행 검토중 탭으로 이동
       setTimeout(() => {
-        navigate('/gallery/generation_formats')
+        navigate('/history?tab=pending')
       }, 1500)
 
     } catch (error) {

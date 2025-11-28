@@ -96,8 +96,11 @@ export function TeachingPlanSelectorV2({ onSelect, courseData }: TeachingPlanSel
         success_only: true
       }, accessToken)
 
-      // Convert ConversionSummary to TeachingPlan format
-      const convertedPlans: TeachingPlan[] = response.conversions.map((conversion) => ({
+      // Convert ConversionSummary to TeachingPlan format (only completed ones)
+      const completedConversions = response.conversions.filter(
+        (conversion) => conversion.status === 'completed'
+      )
+      const convertedPlans: TeachingPlan[] = completedConversions.map((conversion) => ({
         teaching_plan_id: conversion.id,
         teaching_plan_name: conversion.content_name,
         teaching_plan_description: conversion.description || `${conversion.original_filename} - ${conversion.framework} / ${conversion.styling}`,
