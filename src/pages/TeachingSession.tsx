@@ -724,10 +724,57 @@ export default function TeachingSession() {
             </div>
           </>
         ) : (
-          /* ========== 베이직 모드 (슬라이드와 동일한 UI + 사이드바) ========== */
-          <>
-            {/* iframe - 전체 화면 */}
-            <div className="absolute inset-0">
+          /* ========== 베이직 모드 (사이드바 + iframe flex 레이아웃) ========== */
+          <div className="absolute inset-0 flex">
+            {/* 좌측 슬라이드 선택 패널 */}
+            <div className="h-full bg-white/95 backdrop-blur-md shadow-2xl transition-all duration-300 ease-in-out w-16 hover:w-72 overflow-hidden flex-shrink-0 group">
+              {/* 헤더 */}
+              <div className="p-3 border-b border-gray-200">
+                <div className="flex items-center gap-2">
+                  <List className="w-5 h-5 text-gray-600 flex-shrink-0" />
+                  <span className="text-sm font-semibold text-gray-700 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    슬라이드 목록
+                  </span>
+                  <span className="ml-auto text-xs text-gray-500 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    {materialSlides.length}개
+                  </span>
+                </div>
+              </div>
+
+              {/* 슬라이드 목록 */}
+              <div className="overflow-y-auto h-[calc(100%-50px)] p-2">
+                <div className="space-y-1">
+                  {materialSlides.map((slide, index) => (
+                    <button
+                      key={slide.slide_number || index}
+                      onClick={() => setCurrentSlideIndex(index)}
+                      className={`w-full text-left px-2 py-2 rounded-lg transition-all flex items-center gap-2 ${
+                        index === currentSlideIndex
+                          ? 'bg-primary text-white shadow-md'
+                          : 'bg-gray-50 hover:bg-gray-100 text-gray-700'
+                      }`}
+                      title={slide.layout_component || `슬라이드 ${index + 1}`}
+                    >
+                      {/* 슬라이드 번호 아이콘 - 항상 표시 */}
+                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                        index === currentSlideIndex
+                          ? 'bg-white/20'
+                          : 'bg-gray-200'
+                      }`}>
+                        {index + 1}
+                      </span>
+                      {/* 슬라이드 제목 - hover 시에만 표시 */}
+                      <span className="text-sm font-medium truncate whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        {slide.layout_component || `슬라이드 ${index + 1}`}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* iframe - 나머지 공간에서 가운데 정렬 */}
+            <div className="flex-1 flex items-center justify-center">
               <iframe
                 ref={iframeRef}
                 className="w-full h-full border-0 bg-white"
@@ -735,58 +782,7 @@ export default function TeachingSession() {
                 sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
               />
             </div>
-
-            {/* 좌측 슬라이드 선택 패널 - 평소 아이콘만, hover 시 확장 */}
-            <div className="absolute left-0 top-0 bottom-0 z-20 group">
-              {/* 사이드바 컨테이너 - hover 시 너비 확장 */}
-              <div className="h-full bg-white/95 backdrop-blur-md shadow-2xl transition-all duration-300 ease-in-out w-16 group-hover:w-72 overflow-hidden">
-                {/* 헤더 */}
-                <div className="p-3 border-b border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <List className="w-5 h-5 text-gray-600 flex-shrink-0" />
-                    <span className="text-sm font-semibold text-gray-700 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      슬라이드 목록
-                    </span>
-                    <span className="ml-auto text-xs text-gray-500 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      {materialSlides.length}개
-                    </span>
-                  </div>
-                </div>
-
-                {/* 슬라이드 목록 */}
-                <div className="overflow-y-auto h-[calc(100%-50px)] p-2">
-                  <div className="space-y-1">
-                    {materialSlides.map((slide, index) => (
-                      <button
-                        key={slide.slide_number || index}
-                        onClick={() => setCurrentSlideIndex(index)}
-                        className={`w-full text-left px-2 py-2 rounded-lg transition-all flex items-center gap-2 ${
-                          index === currentSlideIndex
-                            ? 'bg-primary text-white shadow-md'
-                            : 'bg-gray-50 hover:bg-gray-100 text-gray-700'
-                        }`}
-                        title={slide.layout_component || `슬라이드 ${index + 1}`}
-                      >
-                        {/* 슬라이드 번호 아이콘 - 항상 표시 */}
-                        <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-                          index === currentSlideIndex
-                            ? 'bg-white/20'
-                            : 'bg-gray-200'
-                        }`}>
-                          {index + 1}
-                        </span>
-                        {/* 슬라이드 제목 - hover 시에만 표시 */}
-                        <span className="text-sm font-medium truncate whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          {slide.layout_component || `슬라이드 ${index + 1}`}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </>
+          </div>
         )}
       </div>
 
