@@ -184,10 +184,18 @@ export default function TeachingSession() {
             <script src="https://cdn.tailwindcss.com"></script>
             <style>
               * { margin: 0; padding: 0; box-sizing: border-box; }
-              body {
+              html, body {
+                width: 100%;
+                height: 100%;
                 font-family: system-ui, -apple-system, sans-serif;
                 overflow: auto;
                 background: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              }
+              .content {
+                text-align: center;
                 padding: 40px;
               }
               h1 { font-size: 2.5rem; font-weight: bold; margin-bottom: 1rem; }
@@ -195,9 +203,11 @@ export default function TeachingSession() {
             </style>
           </head>
           <body>
-            ${currentSlide.slide_title ? `<h1>${currentSlide.slide_title}</h1>` : ''}
-            ${currentSlide.slide_content ? `<p>${currentSlide.slide_content}</p>` : ''}
-            ${!currentSlide.slide_title && !currentSlide.slide_content ? '<p>슬라이드 콘텐츠가 없습니다</p>' : ''}
+            <div class="content">
+              ${currentSlide.slide_title ? `<h1>${currentSlide.slide_title}</h1>` : ''}
+              ${currentSlide.slide_content ? `<p>${currentSlide.slide_content}</p>` : ''}
+              ${!currentSlide.slide_title && !currentSlide.slide_content ? '<p>슬라이드 콘텐츠가 없습니다</p>' : ''}
+            </div>
           </body>
         </html>
       `
@@ -244,13 +254,13 @@ export default function TeachingSession() {
 
       const errorHtml = `
         <!DOCTYPE html>
-        <html>
+        <html class="h-full">
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <script src="https://cdn.tailwindcss.com"></script>
           </head>
-          <body class="flex items-center justify-center min-h-screen bg-red-50">
+          <body class="h-full flex items-center justify-center bg-red-50">
             <div class="text-center p-8 max-w-2xl">
               <h1 class="text-2xl font-bold text-red-600 mb-4">컴포넌트를 찾을 수 없습니다</h1>
               <p class="text-gray-700 mb-2">찾으려는 레이아웃 컴포넌트: <strong>${layoutComponentName}</strong></p>
@@ -289,13 +299,13 @@ export default function TeachingSession() {
       console.error('Component code is empty!')
       const errorHtml = `
         <!DOCTYPE html>
-        <html>
+        <html class="h-full">
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <script src="https://cdn.tailwindcss.com"></script>
           </head>
-          <body class="flex items-center justify-center min-h-screen bg-yellow-50">
+          <body class="h-full flex items-center justify-center bg-yellow-50">
             <div class="text-center p-8 max-w-2xl">
               <h1 class="text-2xl font-bold text-yellow-600 mb-4">컴포넌트 코드가 비어있습니다</h1>
               <p class="text-gray-700 mb-2">컴포넌트 이름: <strong>${component.component_name}</strong></p>
@@ -376,19 +386,26 @@ export default function TeachingSession() {
           <script crossorigin="anonymous" src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            body {
-              width: 1280px;
-              height: 720px;
+            html, body {
+              width: 100%;
+              height: 100%;
               font-family: system-ui, -apple-system, sans-serif;
-              overflow: ${viewMode === 'basic' ? 'auto' : 'hidden'};
+              overflow: auto;
               background: white;
-              display: flex;
-              align-items: center;
-              justify-content: center;
             }
             #root {
               width: 100%;
               height: 100%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            #root > * {
+              width: 100%;
+              height: 100%;
+              max-width: calc(100vh * 16 / 9);
+              max-height: calc(100vw * 9 / 16);
+              aspect-ratio: 16 / 9;
             }
             #error-display {
               padding: 20px;
@@ -588,8 +605,8 @@ export default function TeachingSession() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* 뷰 모드 선택 */}
-          <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-1">
+          {/* 뷰 모드 선택 - 주석 처리 */}
+          {/* <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-1">
             <Button
               variant="ghost"
               size="sm"
@@ -618,10 +635,10 @@ export default function TeachingSession() {
             </Button>
           </div>
 
-          <div className="h-6 w-px bg-gray-700"></div>
+          <div className="h-6 w-px bg-gray-700"></div> */}
 
-          {/* PDF 출력 */}
-          <DropdownMenu>
+          {/* PDF 출력 - 주석 처리 */}
+          {/* <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
@@ -644,7 +661,7 @@ export default function TeachingSession() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="h-6 w-px bg-gray-700"></div>
+          <div className="h-6 w-px bg-gray-700"></div> */}
 
           <span className="text-sm text-gray-400">
             {currentSlideIndex + 1} / {totalSlides}
@@ -658,23 +675,13 @@ export default function TeachingSession() {
           /* ========== 슬라이드 모드 (PPT 스타일) ========== */
           <>
             {/* iframe - 전체 화면 */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div
-                className="bg-white shadow-2xl"
-                style={{
-                  width: '1280px',
-                  height: '720px',
-                  maxWidth: '100vw',
-                  maxHeight: 'calc(100vh - 60px)'
-                }}
-              >
-                <iframe
-                  ref={iframeRef}
-                  className="w-full h-full border-0"
-                  title={`slide-${currentSlideIndex + 1}`}
-                  sandbox="allow-scripts allow-same-origin"
-                />
-              </div>
+            <div className="absolute inset-0">
+              <iframe
+                ref={iframeRef}
+                className="w-full h-full border-0 bg-white"
+                title={`slide-${currentSlideIndex + 1}`}
+                sandbox="allow-scripts allow-same-origin"
+              />
             </div>
 
             {/* 네비게이션 버튼 */}
@@ -719,24 +726,14 @@ export default function TeachingSession() {
         ) : (
           /* ========== 베이직 모드 (슬라이드와 동일한 UI + 사이드바) ========== */
           <>
-            {/* iframe - 중앙 배치 */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div
-                className="bg-white shadow-2xl"
-                style={{
-                  width: '1280px',
-                  height: '720px',
-                  maxWidth: '100vw',
-                  maxHeight: 'calc(100vh - 60px)'
-                }}
-              >
-                <iframe
-                  ref={iframeRef}
-                  className="w-full h-full border-0"
-                  title={`slide-${currentSlideIndex + 1}`}
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
-                />
-              </div>
+            {/* iframe - 전체 화면 */}
+            <div className="absolute inset-0">
+              <iframe
+                ref={iframeRef}
+                className="w-full h-full border-0 bg-white"
+                title={`slide-${currentSlideIndex + 1}`}
+                sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
+              />
             </div>
 
             {/* 좌측 슬라이드 선택 패널 - 평소 아이콘만, hover 시 확장 */}
